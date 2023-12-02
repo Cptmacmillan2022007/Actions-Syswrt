@@ -8,7 +8,7 @@ name: Compile OpenWrt/LEDE system
 on:
   workflow_dispatch:
   schedule:
-    - cron: 0 0 * * *
+    - cron: 0 8 * * *
 
 env:
   CONFIG_FILE: config/x86-64.conf
