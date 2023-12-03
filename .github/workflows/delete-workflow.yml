@@ -1,0 +1,22 @@
+#=================================================
+# https://github.com/Cptmacmillan2022007/Actions-Syswrt
+# Description: Compile OpenWrt/LEDE with github actions project
+# Lisence: GPL-3.0 license
+#=================================================
+
+name: Delete workflow runs
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * *
+
+jobs:
+  Delete-workflow-runs:
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          retain_days: 7
