@@ -22,7 +22,7 @@ Compile OpenWrt/LEDE with github actions project Github Actions線上編譯OpenW
 |**[immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt)**||**[actions/download-artifact](https://github.com/actions/download-artifact)**||
 |**[istoreos/istoreos](https://github.com/istoreos/istoreos)**||**[ncipollo/release-action](https://github.com/ncipollo/release-action)**||
 |||**[mknejp/delete-release-assets](https://github.com/mknejp/delete-release-assets)**||
-|||**[GitRML/delete-workflow-runs](https://github.com/GitRML/delete-workflow-runs)**||
+|||**[Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs)**||
 
 # V.尾聲
 |**留給當下和未來的話**|
