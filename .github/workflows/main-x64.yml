@@ -24,7 +24,7 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  Toolchain:
+  Toolchain-Dlpackage:
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -37,6 +37,8 @@ jobs:
       DEVICE_TARGET: ${{ steps.env.outputs.DEVICE_TARGET }}
       DEVICE_SUBTARGET: ${{ steps.env.outputs.DEVICE_SUBTARGET }}
       TOOLCHAIN_IMAGE: ${{ steps.env.outputs.TOOLCHAIN_IMAGE }}
+      PACKAGE_IMAGE: ${{ steps.env.outputs.PACKAGE_IMAGE }}
+      
 
     steps:
       - name: Initialization Environment
@@ -98,8 +100,11 @@ jobs:
           export TOOLCHAIN_IMAGE="toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "TOOLCHAIN_IMAGE=$TOOLCHAIN_IMAGE" >> $GITHUB_ENV
           echo "TOOLCHAIN_IMAGE=$(echo $TOOLCHAIN_IMAGE)" >> $GITHUB_OUTPUT
+          export PACKAGE_IMAGE="package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
+          echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
 
-      - name: Compare Toolchain Hash
+      - name: Compare Toolchain/Package Hash
         id: hash
         run: |
           cd $OPENWRT_ROOT_PATH
@@ -112,119 +117,6 @@ jobs:
           if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
             echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Install Feeds
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-          make defconfig
-
-      - name: Compile Tools
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          echo -e "$(nproc) thread compile"
-          make tools/compile -j$(nproc) || make tools/compile -j1 V=s
-
-      - name: Compile Toolchain
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          echo -e "$(nproc) thread compile"
-          make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
-          rm -rf .config* dl bin
-
-      - name: Generate Toolchain Image
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        run: |
-          cd workspace
-          mksquashfs openwrt $TOOLCHAIN_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
-          mkdir -p $GITHUB_WORKSPACE/output
-          split -d -b 1900M $TOOLCHAIN_IMAGE $GITHUB_WORKSPACE/output/$TOOLCHAIN_IMAGE.img.
-          rm $TOOLCHAIN_IMAGE
-          cd $OPENWRT_ROOT_PATH
-          echo $CURRENT_HASH > $GITHUB_WORKSPACE/output/toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
-          ls -lh $GITHUB_WORKSPACE/output
-
-      - name: Upload Toolchain Image To Artifact
-        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        uses: actions/upload-artifact@main
-        with:
-          name: ${{ env.TOOLCHAIN_IMAGE }}
-          path: output
-
-      - name: Delete Old Toolchain Assets From Release
-        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        uses: mknejp/delete-release-assets@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ env.TOOLCHAIN_TAG }}
-          assets: "toolchain-${{ env.TOOLCHAIN_IMAGE }}.*"
-          fail-if-no-assets: false
-          fail-if-no-release: false
-
-      - name: Upload Toolchain Image To Release
-        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
-        uses: ncipollo/release-action@main
-        with:
-          name: toolchain-image
-          allowUpdates: true
-          replacesArtifacts: true
-          tag: ${{ env.TOOLCHAIN_TAG }}
-          commit: ${{ env.CURRENT_BRANCH }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: output/*
-
-  Download-Package:
-    needs: [Toolchain]
-    runs-on: ubuntu-latest
-    permissions: write-all
-
-    steps:
-      - name: Restore Variables
-        run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Toolchain.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
-
-      - name: Initialization Environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq full-upgrade
-          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev python3-setuptools
-          sudo -E apt-get -qq autoremove --purge
-          sudo -E apt-get -qq clean
-          sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-          docker image prune -a -f
-
-      - name: Checkout
-        run: |
-          cd $GITHUB_WORKSPACE
-          git init
-          git remote add origin https://github.com/$GITHUB_REPOSITORY
-          git fetch
-          git checkout -t origin/$CURRENT_BRANCH
-
-      - name: Generate Variables
-        id: env
-        run: |
-          export PACKAGE_IMAGE="package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
-          echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
-          echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
-
-      - name: Compare DL Package hash
-        id: hash
-        run: |
           export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl package)
           echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
           echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
@@ -243,10 +135,26 @@ jobs:
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
       - name: Install Feeds
+        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+
+      - name: Compile Tools
+        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          echo -e "$(nproc) thread compile"
+          make tools/compile -j$(nproc) || make tools/compile -j1 V=s
+
+      - name: Compile Toolchain
+        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          echo -e "$(nproc) thread compile"
+          make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
+          rm -rf .config* dl bin
 
       - name: Load Custom Configuration
         run: |
@@ -258,29 +166,59 @@ jobs:
           make defconfig
 
       - name: Download DL Package
+        if: steps.hash.outputs.REBUILD_PACKAGE == 'true'
         id: download
         run: |
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
-      - name: Generate DL Package Image
+      - name: Generate Toolchain Image
+        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        run: |
+          cd workspace
+          mksquashfs openwrt $TOOLCHAIN_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
+          mkdir -p $GITHUB_WORKSPACE/toolchains
+          split -d -b 1900M $TOOLCHAIN_IMAGE $GITHUB_WORKSPACE/toolchains/$TOOLCHAIN_IMAGE.img.
+          rm $TOOLCHAIN_IMAGE
+          cd $OPENWRT_ROOT_PATH
+          echo $CURRENT_HASH > $GITHUB_WORKSPACE/toolchains/toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
+          ls -lh $GITHUB_WORKSPACE/toolchains
+
+      - name: Generate Package Image
         if: steps.hash.outputs.REBUILD_PACKAGE == 'true'
         run: |
           cd workspace
           mksquashfs openwrt $PACKAGE_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
-          mkdir -p $GITHUB_WORKSPACE/dlpackage
-          split -d -b 1900M $PACKAGE_IMAGE $GITHUB_WORKSPACE/output/$PACKAGE_IMAGE.img.
+          mkdir -p $GITHUB_WORKSPACE/packages
+          split -d -b 1900M $PACKAGE_IMAGE $GITHUB_WORKSPACE/packages/$PACKAGE_IMAGE.img.
           rm $PACKAGE_IMAGE
           cd $OPENWRT_ROOT_PATH
-          echo $CURRENT_HASH > $GITHUB_WORKSPACE/output/package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
-          ls -lh $GITHUB_WORKSPACE/dlpackage
+          echo $CURRENT_HASH > $GITHUB_WORKSPACE/packages/package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
+          ls -lh $GITHUB_WORKSPACE/packages
+
+      - name: Upload Toolchain Image To Artifact
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        uses: actions/upload-artifact@main
+        with:
+          name: ${{ env.TOOLCHAIN_IMAGE }}
+          path: toolchains
 
       - name: Upload Package Image To Artifact
         if: env.PACKAGE_RELEASE_UPLOAD != 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.PACKAGE_IMAGE }}
-          path: dlpackage
+          path: toolchains
+
+      - name: Delete Old Toolchain Assets From Release
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        uses: mknejp/delete-release-assets@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.TOOLCHAIN_TAG }}
+          assets: "toolchain-${{ env.TOOLCHAIN_IMAGE }}.*"
+          fail-if-no-assets: false
+          fail-if-no-release: false
 
       - name: Delete Old Package Assets From Release
         if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
@@ -292,6 +230,18 @@ jobs:
           fail-if-no-assets: false
           fail-if-no-release: false
 
+      - name: Upload Toolchain Image To Release
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        uses: ncipollo/release-action@main
+        with:
+          name: toolchain-image
+          allowUpdates: true
+          replacesArtifacts: true
+          tag: ${{ env.TOOLCHAIN_TAG }}
+          commit: ${{ env.CURRENT_BRANCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: toolchains/*
+
       - name: Upload Package Image To Release
         if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
         uses: ncipollo/release-action@main
@@ -302,10 +252,10 @@ jobs:
           tag: ${{ env.PACKAGE_TAG }}
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: dlpackage/*
+          artifacts: packages/*
 
   Build:
-    needs: [Download-Package, Toolchain]
+    needs: [Toolchain-Dlpackage]
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -320,7 +270,6 @@ jobs:
           echo "DEVICE_TARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
           echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
-          echo "PACKAGE_IMAGE=$(echo '${{needs.Download-Package.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
@@ -409,42 +358,33 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           git pull
 
-      - name: Download Package Image Form Artifacts
-        if: env.PACKAGE_RELEASE_UPLOAD != 'true'
-        uses: actions/download-artifact@main
-        with:
-          name: ${{ env.PACKAGE_IMAGE }}
-          path: workspace
-
-      - name: Prepare Package Image Form Artifacts
-        if: env.PACKAGE_RELEASE_UPLOAD != 'true'
+      - name: Load Custom Feeds
         run: |
-          cd workspace
-          for i in {1..9}
-          do
-            cat $PACKAGE_IMAGE.img.0$i >> $PACKAGE_IMAGE.img.00 && rm $PACKAGE_IMAGE.img.0$i || break
-          done
-          mv $PACKAGE_IMAGE.img.00 $PACKAGE_IMAGE.img
-          mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $PACKAGE_IMAGE.img openwrt-ro
-          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
+          [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
           cd $OPENWRT_ROOT_PATH
-          git pull
+          chmod +x $FEEDS_SH
+          $OPENWRT_ROOT_PATH/$FEEDS_SH
 
-      - name: Prepare Package Image Form Releases
-        if: env.PACKAGE_RELEASE_UPLOAD == 'true'
+      - name: Install Feeds
         run: |
-          mkdir -p workspace
-          cd workspace
-          for i in {0..9}
-          do
-            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.img.0$i >> $PACKAGE_IMAGE.img || break
-          done
-          mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $PACKAGE_IMAGE.img openwrt-ro
-          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
-          git pull
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Load Custom Configuration
+        run: |
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
+          [ -e $SETTINGS_SH ] && cp $SETTINGS_SH $OPENWRT_ROOT_PATH/$SETTINGS_SH
+          cd $OPENWRT_ROOT_PATH
+          chmod +x $SETTINGS_SH
+          $OPENWRT_ROOT_PATH/$SETTINGS_SH
+          make defconfig
+
+      - name: Download DL Package
+        id: download
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          make download -j64
 
       - name: Compile Packages
         run: |
@@ -511,7 +451,7 @@ jobs:
           path: ${{ env.OPENWRT_ROOT_PATH }}/${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}.zip
 
   Upload:
-    needs: [Build, Download-Package, Toolchain]
+    needs: [Build, Toolchain-Dlpackage]
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -529,7 +469,6 @@ jobs:
           echo "DEVICE_TARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
           echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
-          echo "PACKAGE_IMAGE=$(echo '${{needs.Download-Package.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
