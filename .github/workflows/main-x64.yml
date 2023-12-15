@@ -209,6 +209,12 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@main
+        run: |
+          cd $GITHUB_WORKSPACE
+          git init
+          git remote add origin https://github.com/$GITHUB_REPOSITORY
+          git fetch
+          git checkout -t origin/$CURRENT_BRANCH
 
       - name: Generate Variables
         id: env
