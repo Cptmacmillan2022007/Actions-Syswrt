@@ -212,7 +212,6 @@ jobs:
       - name: Generate Variables
         id: env
         run: |
-          cd $OPENWRT_ROOT_PATH
           export PACKAGE_IMAGE="package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
           echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
