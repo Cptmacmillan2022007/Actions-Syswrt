@@ -24,7 +24,7 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  Toolchain-Dlpackage:
+  Toolchain-Dloadpack:
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -255,21 +255,22 @@ jobs:
           artifacts: packages/*
 
   Build:
-    needs: [Toolchain-Dlpackage]
+    needs: [Toolchain-Dloadpack]
     runs-on: ubuntu-latest
     permissions: write-all
 
     steps:
       - name: Restore Variables
         run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Toolchain.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain-Dloadpack.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
+          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain-Dloadpack.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
+          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
+          echo "SOURCE_REPO=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
+          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
+          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
+          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
+          echo "PACKAGE_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
@@ -326,12 +327,19 @@ jobs:
         uses: actions/download-artifact@main
         with:
           name: ${{ env.TOOLCHAIN_IMAGE }}
-          path: workspace
+          path: workspace/toolchains
+
+      - name: Download Package Image Form Artifacts
+        if: env.PACKAGE_RELEASE_UPLOAD != 'true'
+        uses: actions/download-artifact@main
+        with:
+          name: ${{ env.PACKAGE_IMAGE }}
+          path: workspace/packages
 
       - name: Prepare Toolchain Image Form Artifacts
         if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true'
         run: |
-          cd workspace
+          cd workspace/toolchains
           for i in {1..9}
           do
             cat $TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img.00 && rm $TOOLCHAIN_IMAGE.img.0$i || break
@@ -343,11 +351,26 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           git pull
 
+      - name: Prepare Package Image Form Artifacts
+        if: env.PACKAGE_RELEASE_UPLOAD != 'true'
+        run: |
+          cd workspace/packages
+          for i in {1..9}
+          do
+            cat $PACKAGE_IMAGE.img.0$i >> $PACKAGE_IMAGE.img.00 && rm $PACKAGE_IMAGE.img.0$i || break
+          done
+          mv $PACKAGE_IMAGE.img.00 $PACKAGE_IMAGE.img
+          mkdir openwrt-ro openwrt workdir overlay
+          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
+          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
+          cd $OPENWRT_ROOT_PATH
+          git pull
+
       - name: Prepare Toolchain Image Form Releases
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true'
         run: |
-          mkdir -p workspace
-          cd workspace
+          mkdir -p workspace/toolchains
+          cd workspace/toolchains
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
@@ -358,33 +381,20 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           git pull
 
-      - name: Load Custom Feeds
+      - name: Prepare Package Image Form Releases
+        if: env.PACKAGE_RELEASE_UPLOAD == 'true'
         run: |
-          [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
+          mkdir -p workspace/packages
+          cd workspace/packages
+          for i in {0..9}
+          do
+            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
+          done
+          mkdir openwrt-ro openwrt workdir overlay
+          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
+          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
-          chmod +x $FEEDS_SH
-          $OPENWRT_ROOT_PATH/$FEEDS_SH
-
-      - name: Install Feeds
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-
-      - name: Load Custom Configuration
-        run: |
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
-          [ -e $SETTINGS_SH ] && cp $SETTINGS_SH $OPENWRT_ROOT_PATH/$SETTINGS_SH
-          cd $OPENWRT_ROOT_PATH
-          chmod +x $SETTINGS_SH
-          $OPENWRT_ROOT_PATH/$SETTINGS_SH
-          make defconfig
-
-      - name: Download DL Package
-        id: download
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          make download -j64
+          git pull
 
       - name: Compile Packages
         run: |
@@ -429,7 +439,7 @@ jobs:
       - name: Compress Bin Folder
         run: |
           cd $OPENWRT_ROOT_PATH
-          zip -r $DEVICE_TARGET-$DEVICE_SUBTARGET.zip bin
+          zip -9 -r $DEVICE_TARGET-$DEVICE_SUBTARGET.zip bin
 
       - name: Print Disk Usage
         if: always()
@@ -451,7 +461,7 @@ jobs:
           path: ${{ env.OPENWRT_ROOT_PATH }}/${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}.zip
 
   Upload:
-    needs: [Build, Toolchain-Dlpackage]
+    needs: [Build, Toolchain-Dloadpack]
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -461,14 +471,15 @@ jobs:
 
       - name: Restore Variables
         run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Toolchain.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain-Dloadpack.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
+          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain-Dloadpack.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
+          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
+          echo "SOURCE_REPO=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
+          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
+          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
+          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
+          echo "PACKAGE_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
@@ -496,35 +507,6 @@ jobs:
           cd $OPENWRT_ROOT_PATH/bin/targets/$DEVICE_TARGET/$DEVICE_SUBTARGET
           rm -rf packages
           df -hT $PWD
-
-      - name: Deploy Files To HostHatch Node
-        env:
-          HOST: "${{ secrets.REMOTE_USER }}@${{ secrets.HOSTHATCH_IP }}"
-          SOURCE_TARGETS: "${{ env.OPENWRT_ROOT_PATH }}/bin/targets/${{ env.DEVICE_TARGET }}/${{ env.DEVICE_SUBTARGET }}/"
-          DEST_TARGETS: "${{ env.WEB_ROOT_PATH }}/releases/targets/${{ env.DEVICE_TARGET }}/${{ env.DEVICE_SUBTARGET }}/"
-          REMOTE_PRIVATEKEY: "${{ secrets.HOSTHATCH_PRIVATEKEY }}"
-        if: env.REMOTE_PRIVATEKEY != null
-        run: |
-          mkdir -p ~/.ssh/
-          install -m 600 /dev/null ~/.ssh/id_rsa
-          echo "${{ secrets.HOSTHATCH_PRIVATEKEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh -q -t -i ~/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $HOST \
-          bash -c "'mkdir -p $WEB_ROOT_PATH/releases/targets/$DEVICE_TARGET/$DEVICE_SUBTARGET'"
-          rsync -chavP --delete -e 'ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no' $SOURCE_TARGETS $HOST:$DEST_TARGETS
-
-      - name: Deploy Files To Backblaze
-        env:
-          B2_APPLICATION_KEY: "${{ secrets.B2_APPLICATION_KEY }}"
-          B2_APPLICATION_KEY_ID: "${{ secrets.B2_APPLICATION_KEY_ID }}"
-          SOURCE_TARGETS: "${{ env.OPENWRT_ROOT_PATH }}/bin/targets/${{ env.DEVICE_TARGET }}/${{ env.DEVICE_SUBTARGET }}/"
-          DEST_TARGETS: "b2://${{ secrets.B2_BUCKETNAME }}/releases/targets/${{ env.DEVICE_TARGET }}/${{ env.DEVICE_SUBTARGET }}/"
-        if: env.B2_APPLICATION_KEY != null && env.B2_APPLICATION_KEY_ID != null
-        run: |
-          sudo wget -q -O /bin/b2 https://github.com/Backblaze/B2_Command_Line_Tool/releases/latest/download/b2-linux
-          sudo chmod +x /bin/b2
-          b2 authorize-account $B2_APPLICATION_KEY_ID $B2_APPLICATION_KEY
-          b2 sync --noProgress --threads 32 --keepDays 7 --replaceNewer $SOURCE_TARGETS $DEST_TARGETS
 
       - name: Delete Old Firmware Assets
         if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
