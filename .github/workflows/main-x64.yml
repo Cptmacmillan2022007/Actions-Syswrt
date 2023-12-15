@@ -192,6 +192,7 @@ jobs:
           echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
           echo "DEVICE_TARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
@@ -212,7 +213,6 @@ jobs:
       - name: Generate Variables
         id: env
         run: |
-          cd $OPENWRT_ROOT_PATH
           export PACKAGE_IMAGE="package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
           echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
@@ -220,7 +220,6 @@ jobs:
       - name: Compare DL Package hash
         id: hash
         run: |
-          cd $OPENWRT_ROOT_PATH
           export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl package)
           echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
           echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
