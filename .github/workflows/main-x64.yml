@@ -208,7 +208,6 @@ jobs:
           docker image prune -a -f
 
       - name: Checkout
-        uses: actions/checkout@main
         run: |
           cd $GITHUB_WORKSPACE
           git init
