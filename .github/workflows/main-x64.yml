@@ -212,6 +212,7 @@ jobs:
       - name: Generate Variables
         id: env
         run: |
+          cd $OPENWRT_ROOT_PATH
           export PACKAGE_IMAGE="package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
           echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
@@ -220,7 +221,7 @@ jobs:
         id: hash
         run: |
           cd $OPENWRT_ROOT_PATH
-          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
+          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl package)
           echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
           echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
           echo "CURRENT_HASH is $CURRENT_HASH"
