@@ -24,7 +24,7 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  Toolchain-Dloadpack:
+  Toolchain-Downloadpkgs:
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -149,22 +149,22 @@ jobs:
         id: hash
         run: |
           cd $OPENWRT_ROOT_PATH
-          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
-          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
-          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
-          echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
-          echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
-          echo "CURRENT_HASH is $CURRENT_HASH"
-          echo "CURRENT_HASH is $CURRENT_HASH"
-          export CACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
-          export CACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
-          echo "CACHE_HASH is $CACHE_HASH"
-          echo "CACHE_HASH is $CACHE_HASH"
-          if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
+          export TOOLCHAIN_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
+          export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
+          echo "TOOLCHAIN_HASH=$TOOLCHAIN_HASH" >> $GITHUB_ENV
+          echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
+          echo "TOOLCHAIN_HASH=$(echo $TOOLCHAIN_HASH)" >> $GITHUB_OUTPUT
+          echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
+          echo "TOOLCHAIN_HASH is $TOOLCHAIN_HASH"
+          echo "PACKAGE_HASH is $PACKAGE_HASH"
+          export TOOLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
+          export PACKCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
+          echo "TOOLCACHE_HASH is $TOOLCACHE_HASH"
+          echo "PACKCACHE_HASH is $PACKCACHE_HASH"
+          if [ -z "$TOOLCACHE_HASH" ] || [ "$TOOLCHAIN_HASH" != "$TOOLCACHE_HASH" ]; then
             echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
           fi
-          if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
+          if [ -z "$PACKCACHE_HASH" ] || [ "$PACKAGE_HASH" != "$PACKCACHE_HASH" ]; then
             echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -177,7 +177,7 @@ jobs:
           split -d -b 1900M $TOOLCHAIN_IMAGE $GITHUB_WORKSPACE/toolchains/$TOOLCHAIN_IMAGE.img.
           rm $TOOLCHAIN_IMAGE
           cd $OPENWRT_ROOT_PATH
-          echo $CURRENT_HASH > $GITHUB_WORKSPACE/toolchains/toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
+          echo $TOOLCACHE_HASH > $GITHUB_WORKSPACE/toolchains/toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
           ls -lh $GITHUB_WORKSPACE/toolchains
 
       - name: Generate Package Image
@@ -189,7 +189,7 @@ jobs:
           split -d -b 1900M $PACKAGE_IMAGE $GITHUB_WORKSPACE/packages/$PACKAGE_IMAGE.img.
           rm $PACKAGE_IMAGE
           cd $OPENWRT_ROOT_PATH
-          echo $CURRENT_HASH > $GITHUB_WORKSPACE/packages/package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
+          echo $PACKCACHE_HASH > $GITHUB_WORKSPACE/packages/package-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
           ls -lh $GITHUB_WORKSPACE/packages
 
       - name: Upload Toolchain Image To Artifact
@@ -251,7 +251,7 @@ jobs:
           artifacts: packages/*
 
   Build:
-    needs: [Toolchain-Dloadpack]
+    needs: [Toolchain-Downloadpkgs]
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -457,7 +457,7 @@ jobs:
           path: ${{ env.OPENWRT_ROOT_PATH }}/${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}.zip
 
   Upload:
-    needs: [Build, Toolchain-Dloadpack]
+    needs: [Build, Toolchain-Downloadpkgs]
     runs-on: ubuntu-latest
     permissions: write-all
 
