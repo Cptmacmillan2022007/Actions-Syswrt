@@ -150,7 +150,7 @@ jobs:
         run: |
           cd $OPENWRT_ROOT_PATH
           export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl package)
+          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
           echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
           echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
           echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
