@@ -104,29 +104,6 @@ jobs:
           echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
           echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
 
-      - name: Compare Toolchain/Package Hash
-        id: hash
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl package)
-          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
-          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
-          echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
-          echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
-          echo "CURRENT_HASH is $CURRENT_HASH"
-          echo "CURRENT_HASH is $CURRENT_HASH"
-          export CACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
-          export CACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
-          echo "CACHE_HASH is $CACHE_HASH"
-          echo "CACHE_HASH is $CACHE_HASH"
-          if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
-            echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
-            echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Load Custom Feeds
         run: |
           [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
@@ -172,6 +149,29 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
+      - name: Compare Toolchain/Package Hash
+        id: hash
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
+          export CURRENT_HASH=$(git log --pretty=tformat:"%H" -n1 dl package)
+          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
+          echo "CURRENT_HASH=$CURRENT_HASH" >> $GITHUB_ENV
+          echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
+          echo "CURRENT_HASH=$(echo $CURRENT_HASH)" >> $GITHUB_OUTPUT
+          echo "CURRENT_HASH is $CURRENT_HASH"
+          echo "CURRENT_HASH is $CURRENT_HASH"
+          export CACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
+          export CACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
+          echo "CACHE_HASH is $CACHE_HASH"
+          echo "CACHE_HASH is $CACHE_HASH"
+          if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
+            echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$CACHE_HASH" ] || [ "$CURRENT_HASH" != "$CACHE_HASH" ]; then
+            echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate Toolchain Image
         if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
@@ -208,7 +208,7 @@ jobs:
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.PACKAGE_IMAGE }}
-          path: toolchains
+          path: packages
 
       - name: Delete Old Toolchain Assets From Release
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
