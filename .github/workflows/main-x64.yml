@@ -104,7 +104,22 @@ jobs:
           echo "PACKAGE_IMAGE=$PACKAGE_IMAGE" >> $GITHUB_ENV
           echo "PACKAGE_IMAGE=$(echo $PACKAGE_IMAGE)" >> $GITHUB_OUTPUT
 
+      - name: Compare Toolchain Hash
+        id: toolchainhash
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          export TOOLCHAIN_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
+          echo "TOOLCHAIN_HASH=$TOOLCHAIN_HASH" >> $GITHUB_ENV
+          echo "TOOLCHAIN_HASH=$(echo $TOOLCHAIN_HASH)" >> $GITHUB_OUTPUT
+          echo "TOOLCHAIN_HASH is $TOOLCHAIN_HASH"
+          export TOOLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
+          echo "TOOLCACHE_HASH is $TOOLCACHE_HASH"
+          if [ -z "$TOOLCACHE_HASH" ] || [ "$TOOLCHAIN_HASH" != "$TOOLCACHE_HASH" ]; then
+            echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Load Custom Feeds
+        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
           cd $OPENWRT_ROOT_PATH
@@ -112,23 +127,26 @@ jobs:
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
       - name: Install Feeds
+        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Compile Tools
+        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
           make tools/compile -j$(nproc) || make tools/compile -j1 V=s
 
       - name: Compile Toolchain
+        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
           make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
-          rm -rf .config* dl bin
+          rm -rf .config* bin
 
       - name: Load Custom Configuration
         run: |
@@ -139,37 +157,28 @@ jobs:
           $OPENWRT_ROOT_PATH/$SETTINGS_SH
           make defconfig
 
+      - name: Compare Package Hash
+        id: packagehash
+        run: |
+          export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
+          echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
+          echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
+          echo "PACKAGE_HASH is $PACKAGE_HASH"
+          export PACKCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
+          echo "PACKCACHE_HASH is $PACKCACHE_HASH"
+          if [ -z "$PACKCACHE_HASH" ] || [ "$PACKAGE_HASH" != "$PACKCACHE_HASH" ]; then
+            echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download DL Package
+        if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         id: download
         run: |
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
-      - name: Compare Toolchain/Package Hash
-        id: hash
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          export TOOLCHAIN_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
-          echo "TOOLCHAIN_HASH=$TOOLCHAIN_HASH" >> $GITHUB_ENV
-          echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
-          echo "TOOLCHAIN_HASH=$(echo $TOOLCHAIN_HASH)" >> $GITHUB_OUTPUT
-          echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
-          echo "TOOLCHAIN_HASH is $TOOLCHAIN_HASH"
-          echo "PACKAGE_HASH is $PACKAGE_HASH"
-          export TOOLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
-          export PACKCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
-          echo "TOOLCACHE_HASH is $TOOLCACHE_HASH"
-          echo "PACKCACHE_HASH is $PACKCACHE_HASH"
-          if [ -z "$TOOLCACHE_HASH" ] || [ "$TOOLCHAIN_HASH" != "$TOOLCACHE_HASH" ]; then
-            echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -z "$PACKCACHE_HASH" ] || [ "$PACKAGE_HASH" != "$PACKCACHE_HASH" ]; then
-            echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Generate Toolchain Image
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd workspace
           mksquashfs openwrt $TOOLCHAIN_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
@@ -181,7 +190,7 @@ jobs:
           ls -lh $GITHUB_WORKSPACE/toolchains
 
       - name: Generate Package Image
-        if: steps.hash.outputs.REBUILD_PACKAGE == 'true'
+        if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         run: |
           cd workspace
           mksquashfs openwrt $PACKAGE_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
@@ -193,21 +202,21 @@ jobs:
           ls -lh $GITHUB_WORKSPACE/packages
 
       - name: Upload Toolchain Image To Artifact
-        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.TOOLCHAIN_IMAGE }}
           path: toolchains
 
       - name: Upload Package Image To Artifact
-        if: env.PACKAGE_RELEASE_UPLOAD != 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
+        if: env.PACKAGE_RELEASE_UPLOAD != 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.PACKAGE_IMAGE }}
           path: packages
 
       - name: Delete Old Toolchain Assets From Release
-        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -217,7 +226,7 @@ jobs:
           fail-if-no-release: false
 
       - name: Delete Old Package Assets From Release
-        if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
+        if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -227,7 +236,7 @@ jobs:
           fail-if-no-release: false
 
       - name: Upload Toolchain Image To Release
-        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: ncipollo/release-action@main
         with:
           name: toolchain-image
@@ -239,7 +248,7 @@ jobs:
           artifacts: toolchains/*
 
       - name: Upload Package Image To Release
-        if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
+        if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         uses: ncipollo/release-action@main
         with:
           name: package-image
@@ -258,15 +267,15 @@ jobs:
     steps:
       - name: Restore Variables
         run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain-Dloadpack.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain-Dloadpack.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
-          echo "PACKAGE_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain-Dlpackage.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
+          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain-Dlpackage.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
+          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain-Dlpackage.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
+          echo "SOURCE_REPO=$(echo '${{needs.Toolchain-Dlpackage.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
+          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain-Dlpackage.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
+          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain-Dlpackage.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
+          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain-Dlpackage.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain-Dlpackage.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
+          echo "PACKAGE_IMAGE=$(echo '${{needs.Toolchain-Dlpackage.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
@@ -467,15 +476,15 @@ jobs:
 
       - name: Restore Variables
         run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain-Dloadpack.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain-Dloadpack.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Toolchain-Dloadpack.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain-Dloadpack.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
-          echo "PACKAGE_IMAGE=$(echo '${{needs.Toolchain-Dloadpack.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$(echo '${{needs.Toolchain-Dlpackage.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
+          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Toolchain-Dlpackage.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
+          echo "SOURCE_OWNER=$(echo '${{needs.Toolchain-Dlpackage.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
+          echo "SOURCE_REPO=$(echo '${{needs.Toolchain-Dlpackage.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
+          echo "DEVICE_PLATFORM=$(echo '${{needs.Toolchain-Dlpackage.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
+          echo "DEVICE_TARGET=$(echo '${{needs.Toolchain-Dlpackage.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
+          echo "DEVICE_SUBTARGET=$(echo '${{needs.Toolchain-Dlpackage.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Toolchain-Dlpackage.outputs.TOOLCHAIN_IMAGE}}')" >> $GITHUB_ENV
+          echo "PACKAGE_IMAGE=$(echo '${{needs.Toolchain-Dlpackage.outputs.PACKAGE_IMAGE}}')" >> $GITHUB_ENV
 
       - name: Initialization Environment
         env:
@@ -505,7 +514,7 @@ jobs:
           df -hT $PWD
 
       - name: Delete Old Firmware Assets
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
+        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
