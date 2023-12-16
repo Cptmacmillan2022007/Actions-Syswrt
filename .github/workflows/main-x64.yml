@@ -112,21 +112,18 @@ jobs:
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
       - name: Install Feeds
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true' && steps.hash.outputs.REBUILD_PACKAGE == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Compile Tools
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
           make tools/compile -j$(nproc) || make tools/compile -j1 V=s
 
       - name: Compile Toolchain
-        if: steps.hash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
@@ -143,7 +140,6 @@ jobs:
           make defconfig
 
       - name: Download DL Package
-        if: steps.hash.outputs.REBUILD_PACKAGE == 'true'
         id: download
         run: |
           cd $OPENWRT_ROOT_PATH
