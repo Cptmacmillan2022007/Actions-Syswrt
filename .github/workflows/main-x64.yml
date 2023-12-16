@@ -118,7 +118,7 @@ jobs:
             echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install Toolchain Feeds
+      - name: Preload Toolchain Feeds
         if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
@@ -137,41 +137,24 @@ jobs:
         if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
-          mkdir -p dl
           echo -e "$(nproc) thread compile"
           make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
           rm -rf .config* bin
 
-      - name: Compare Package Hash
-        id: packagehash
-        run: |
-          export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
-          echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
-          echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
-          echo "PACKAGE_HASH is $PACKAGE_HASH"
-          export PACKCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
-          echo "PACKCACHE_HASH is $PACKCACHE_HASH"
-          if [ -z "$PACKCACHE_HASH" ] || [ "$PACKAGE_HASH" != "$PACKCACHE_HASH" ]; then
-            echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Load Custom Feeds
-        if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         run: |
           [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
           cd $OPENWRT_ROOT_PATH
           chmod +x $FEEDS_SH
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
-      - name: Install Download Feeds
-        if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
+      - name: Preload Download Feeds
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Load Custom Configuration
-        if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         run: |
           [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
           [ -e $SETTINGS_SH ] && cp $SETTINGS_SH $OPENWRT_ROOT_PATH/$SETTINGS_SH
@@ -181,11 +164,19 @@ jobs:
           make defconfig
 
       - name: Download DL Package
-        if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         id: download
         run: |
           cd $OPENWRT_ROOT_PATH
           make download -j64
+          export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
+          echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
+          echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
+          echo "PACKAGE_HASH is $PACKAGE_HASH"
+          export PACKCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.hash)
+          echo "PACKCACHE_HASH is $PACKCACHE_HASH"
+          if [ -z "$PACKCACHE_HASH" ] || [ "$PACKAGE_HASH" != "$PACKCACHE_HASH" ]; then
+            echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Generate Toolchain Image
         if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
