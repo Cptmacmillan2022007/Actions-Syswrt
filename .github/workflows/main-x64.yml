@@ -118,15 +118,7 @@ jobs:
             echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Load Custom Feeds
-        if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
-        run: |
-          [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
-          cd $OPENWRT_ROOT_PATH
-          chmod +x $FEEDS_SH
-          $OPENWRT_ROOT_PATH/$FEEDS_SH
-
-      - name: Install Feeds
+      - name: Install Toolchain Feeds
         if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
@@ -144,18 +136,10 @@ jobs:
         if: steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
+          mkdir -p dl
           echo -e "$(nproc) thread compile"
           make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
           rm -rf .config* bin
-
-      - name: Load Custom Configuration
-        run: |
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
-          [ -e $SETTINGS_SH ] && cp $SETTINGS_SH $OPENWRT_ROOT_PATH/$SETTINGS_SH
-          cd $OPENWRT_ROOT_PATH
-          chmod +x $SETTINGS_SH
-          $OPENWRT_ROOT_PATH/$SETTINGS_SH
-          make defconfig
 
       - name: Compare Package Hash
         id: packagehash
@@ -169,6 +153,31 @@ jobs:
           if [ -z "$PACKCACHE_HASH" ] || [ "$PACKAGE_HASH" != "$PACKCACHE_HASH" ]; then
             echo "REBUILD_PACKAGE=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Load Custom Feeds
+        if: steps.packagehash.outputs.REBUILD_TOOLCHAIN == 'true'
+        run: |
+          [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
+          cd $OPENWRT_ROOT_PATH
+          chmod +x $FEEDS_SH
+          $OPENWRT_ROOT_PATH/$FEEDS_SH
+
+      - name: Install Download Feeds
+        if: steps.packagehash.outputs.REBUILD_TOOLCHAIN == 'true'
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Load Custom Configuration
+        if: steps.packagehash.outputs.REBUILD_TOOLCHAIN == 'true'
+        run: |
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
+          [ -e $SETTINGS_SH ] && cp $SETTINGS_SH $OPENWRT_ROOT_PATH/$SETTINGS_SH
+          cd $OPENWRT_ROOT_PATH
+          chmod +x $SETTINGS_SH
+          $OPENWRT_ROOT_PATH/$SETTINGS_SH
+          make defconfig
 
       - name: Download DL Package
         if: steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
