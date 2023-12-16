@@ -24,7 +24,7 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  Toolchain-Downloadpkgs:
+  Toolchain-Dlpackage:
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -251,7 +251,7 @@ jobs:
           artifacts: packages/*
 
   Build:
-    needs: [Toolchain-Downloadpkgs]
+    needs: [Toolchain-Dlpackage]
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -457,7 +457,7 @@ jobs:
           path: ${{ env.OPENWRT_ROOT_PATH }}/${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}.zip
 
   Upload:
-    needs: [Build, Toolchain-Downloadpkgs]
+    needs: [Build, Toolchain-Dlpackage]
     runs-on: ubuntu-latest
     permissions: write-all
 
