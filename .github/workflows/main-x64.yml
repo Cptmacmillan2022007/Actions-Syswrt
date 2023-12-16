@@ -168,6 +168,10 @@ jobs:
         run: |
           cd $OPENWRT_ROOT_PATH
           make download -j64
+
+      - name: Compare Package Hash
+        id: packagehash
+        run: |
           export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
           echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
           echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
