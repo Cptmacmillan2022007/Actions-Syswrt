@@ -81,6 +81,8 @@ jobs:
           export CURRENT_BRANCH="$(git symbolic-ref --short HEAD)"
           echo "CURRENT_BRANCH=$CURRENT_BRANCH" >> $GITHUB_ENV
           echo "CURRENT_BRANCH=$(echo $CURRENT_BRANCH)" >> $GITHUB_OUTPUT
+          export BUILD_DATE=$(date +"%Y-%m-%d")
+          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
           cd $OPENWRT_ROOT_PATH
           export SOURCE_OWNER="$(echo $SOURCE_URL | awk -F '/' '{print $(NF-1)}')"
           echo "SOURCE_OWNER=$SOURCE_OWNER" >> $GITHUB_ENV
@@ -172,6 +174,7 @@ jobs:
       - name: Compare Package Hash
         id: packagehash
         run: |
+          cd $OPENWRT_ROOT_PATH
           export PACKAGE_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
           echo "PACKAGE_HASH=$PACKAGE_HASH" >> $GITHUB_ENV
           echo "PACKAGE_HASH=$(echo $PACKAGE_HASH)" >> $GITHUB_OUTPUT
@@ -212,6 +215,7 @@ jobs:
         with:
           name: ${{ env.TOOLCHAIN_IMAGE }}
           path: toolchains
+          compression-level: 9
 
       - name: Upload Package Image To Artifact
         if: env.PACKAGE_RELEASE_UPLOAD != 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
@@ -219,6 +223,7 @@ jobs:
         with:
           name: ${{ env.PACKAGE_IMAGE }}
           path: packages
+          compression-level: 9
 
       - name: Delete Old Toolchain Assets From Release
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
@@ -242,27 +247,29 @@ jobs:
 
       - name: Upload Toolchain Image To Release
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
-        uses: ncipollo/release-action@main
+        uses: softprops/action-gh-release@master
         with:
+          body_path: toolchains/*
+          tag_name: ${{ env.TOOLCHAIN_TAG }}
+          fail_on_unmatched_files: true
           name: toolchain-image
-          allowUpdates: true
-          replacesArtifacts: true
-          tag: ${{ env.TOOLCHAIN_TAG }}
-          commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: toolchains/*
+          generate_release_notes: ${{ env.BUILD_DATE }}
+          target_commitish: ${{ env.CURRENT_BRANCH }}
+          append_body: false
 
       - name: Upload Package Image To Release
         if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
-        uses: ncipollo/release-action@main
+        uses: softprops/action-gh-release@master
         with:
+          body_path: packages/*
+          tag_name: ${{ env.PACKAGE_TAG }}
+          fail_on_unmatched_files: true
           name: package-image
-          allowUpdates: true
-          replacesArtifacts: true
-          tag: ${{ env.PACKAGE_TAG }}
-          commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: packages/*
+          generate_release_notes: ${{ env.BUILD_DATE }}
+          target_commitish: ${{ env.CURRENT_BRANCH }}
+          append_body: false
 
   Build:
     needs: [Toolchain-Dlpackage]
@@ -337,19 +344,19 @@ jobs:
         uses: actions/download-artifact@main
         with:
           name: ${{ env.TOOLCHAIN_IMAGE }}
-          path: workspace/toolchains
+          path: workspace
 
       - name: Download Package Image Form Artifacts
         if: env.PACKAGE_RELEASE_UPLOAD != 'true'
         uses: actions/download-artifact@main
         with:
           name: ${{ env.PACKAGE_IMAGE }}
-          path: workspace/packages
+          path: workspace
 
       - name: Prepare Toolchain Image Form Artifacts
         if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true'
         run: |
-          cd workspace/toolchains
+          cd workspace
           for i in {1..9}
           do
             cat $TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img.00 && rm $TOOLCHAIN_IMAGE.img.0$i || break
@@ -364,7 +371,7 @@ jobs:
       - name: Prepare Package Image Form Artifacts
         if: env.PACKAGE_RELEASE_UPLOAD != 'true'
         run: |
-          cd workspace/packages
+          cd workspace
           for i in {1..9}
           do
             cat $PACKAGE_IMAGE.img.0$i >> $PACKAGE_IMAGE.img.00 && rm $PACKAGE_IMAGE.img.0$i || break
@@ -379,8 +386,8 @@ jobs:
       - name: Prepare Toolchain Image Form Releases
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true'
         run: |
-          mkdir -p workspace/toolchains
-          cd workspace/toolchains
+          mkdir -p workspace
+          cd workspace
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
@@ -394,8 +401,8 @@ jobs:
       - name: Prepare Package Image Form Releases
         if: env.PACKAGE_RELEASE_UPLOAD == 'true'
         run: |
-          mkdir -p workspace/packages
-          cd workspace/packages
+          mkdir -p workspace
+          cd workspace
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
