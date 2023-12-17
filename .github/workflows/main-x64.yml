@@ -249,7 +249,7 @@ jobs:
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: softprops/action-gh-release@master
         with:
-          body_path: toolchains/*
+          body_path: $GITHUB_WORKSPACE/toolchains/$TOOLCHAIN_IMAGE.img.
           tag_name: ${{ env.TOOLCHAIN_TAG }}
           fail_on_unmatched_files: true
           name: toolchain-image
@@ -262,7 +262,7 @@ jobs:
         if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         uses: softprops/action-gh-release@master
         with:
-          body_path: packages/*
+          body_path: $GITHUB_WORKSPACE/packages/$PACKAGE_IMAGE.img.
           tag_name: ${{ env.PACKAGE_TAG }}
           fail_on_unmatched_files: true
           name: package-image
