@@ -270,7 +270,7 @@ jobs:
           git checkout -t origin/$CURRENT_BRANCH
 
       - name: Prepare Combo Image Form Releases
-        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: env.COMBO_RELEASE_UPLOAD == 'true'
         run: |
           mkdir -p workspace
           cd workspace
