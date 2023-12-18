@@ -150,7 +150,7 @@ jobs:
           chmod +x $FEEDS_SH
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
-      - name: Preload Download Feeds
+      - name: Preload Build Feeds
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
@@ -214,7 +214,7 @@ jobs:
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.TOOLCHAIN_IMAGE }}
-          path: toolchains
+          path: $GITHUB_WORKSPACE/toolchains/*
           compression-level: 9
 
       - name: Upload Package Image To Artifact
@@ -222,7 +222,7 @@ jobs:
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.PACKAGE_IMAGE }}
-          path: packages
+          path: $GITHUB_WORKSPACE/packages/*
           compression-level: 9
 
       - name: Delete Old Toolchain Assets From Release
@@ -249,12 +249,12 @@ jobs:
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchainhash.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: softprops/action-gh-release@master
         with:
+          body: ${{ env.BUILD_DATE }}
           files: toolchains/*
           tag_name: ${{ env.TOOLCHAIN_TAG }}
           fail_on_unmatched_files: true
           name: toolchain-image
           token: ${{ secrets.GITHUB_TOKEN }}
-          generate_release_notes: ${{ env.BUILD_DATE }}
           target_commitish: ${{ env.CURRENT_BRANCH }}
           append_body: false
 
@@ -262,12 +262,12 @@ jobs:
         if: env.PACKAGE_RELEASE_UPLOAD == 'true' && steps.packagehash.outputs.REBUILD_PACKAGE == 'true'
         uses: softprops/action-gh-release@master
         with:
+          body: ${{ env.BUILD_DATE }}
           files: packages/*
           tag_name: ${{ env.PACKAGE_TAG }}
           fail_on_unmatched_files: true
           name: package-image
           token: ${{ secrets.GITHUB_TOKEN }}
-          generate_release_notes: ${{ env.BUILD_DATE }}
           target_commitish: ${{ env.CURRENT_BRANCH }}
           append_body: false
 
