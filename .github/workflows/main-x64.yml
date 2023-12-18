@@ -167,17 +167,17 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
-      - name: Generate Combo Image
+      - name: Generate Toolchain Image
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
           cd workspace
           mksquashfs openwrt $COMBO_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
-          mkdir -p $GITHUB_WORKSPACE/outputs
-          split -d -b 1900M $COMBO_IMAGE $GITHUB_WORKSPACE/outputs/$COMBO_IMAGE.img.
+          mkdir -p $GITHUB_WORKSPACE/output
+          split -d -b 1900M $COMBO_IMAGE $GITHUB_WORKSPACE/output/$COMBO_IMAGE.img.
           rm $COMBO_IMAGE
           cd $OPENWRT_ROOT_PATH
-          echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/outputs/combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
-          ls -lh $GITHUB_WORKSPACE/outputs
+          echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/output/combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
+          ls -lh $GITHUB_WORKSPACE/output
 
       - name: Delete Old Combo Assets From Release
         if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
@@ -185,7 +185,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.COMBO_TAG }}
-          assets: "toolchain-${{ env.TOOLCHAIN_IMAGE }}.*"
+          assets: "combo-${{ env.COMBO_IMAGE }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
@@ -193,14 +193,14 @@ jobs:
         if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: combo-image-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+          name: combo-image
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.COMBO_TAG }}
           body: ${{ env.BUILD_DATE }}
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: outputs/*
+          artifacts: output/*
 
   Mainbuild:
     needs: [Prebuild]
