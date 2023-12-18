@@ -99,20 +99,6 @@ jobs:
           echo "COMBO_IMAGE=$COMBO_IMAGE" >> $GITHUB_ENV
           echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> $GITHUB_OUTPUT
 
-      - name: Compare Toolchain Hash
-        id: toolchainhash
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          export TOOLCHAIN_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          echo "TOOLCHAIN_HASH=$TOOLCHAIN_HASH" >> $GITHUB_ENV
-          echo "TOOLCHAIN_HASH=$(echo $TOOLCHAIN_HASH)" >> $GITHUB_OUTPUT
-          echo "TOOLCHAIN_HASH is $TOOLCHAIN_HASH"
-          export TOOLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
-          echo "TOOLCACHE_HASH is $TOOLCACHE_HASH"
-          if [ -z "$TOOLCACHE_HASH" ] || [ "$TOOLCHAIN_HASH" != "$TOOLCACHE_HASH" ]; then
-            echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Preload Toolchain Feeds
         run: |
           cd $OPENWRT_ROOT_PATH
@@ -187,8 +173,7 @@ jobs:
           echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/outputs/combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
           ls -lh $GITHUB_WORKSPACE/outputs
 
-      - name: Upload Toolchain Image To Artifact
-        if: env.COMBO_RELEASE_UPLOAD != 'true'
+      - name: Upload Combo Image To Artifact
         uses: actions/upload-artifact@main
         with:
           name: ${{ env.COMBO_IMAGE }}
@@ -286,14 +271,12 @@ jobs:
           git checkout -t origin/$CURRENT_BRANCH
 
       - name: Download Combo Image Form Artifacts
-        if: env.COMBO_RELEASE_UPLOAD != 'true'
         uses: actions/download-artifact@main
         with:
           name: ${{ env.COMBO_IMAGE }}
           path: workspace
 
       - name: Prepare Combo Image Form Artifacts
-        if: env.COMBO_RELEASE_UPLOAD != 'true'
         run: |
           cd workspace
           for i in {1..9}
