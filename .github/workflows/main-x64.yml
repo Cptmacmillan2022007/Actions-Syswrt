@@ -291,7 +291,7 @@ jobs:
           git pull
 
       - name: Prepare Combo Image Form Releases
-        if: env.COMBO_RELEASE_UPLOAD != 'true'
+        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
           mkdir -p workspace
           cd workspace
