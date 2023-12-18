@@ -167,7 +167,7 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
-      - name: Generate Toolchain Image
+      - name: Generate Combo Image
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
           cd workspace
@@ -279,7 +279,7 @@ jobs:
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$COMBO_TAG/$COMBO_IMAGE.img.0$i >> $COMBO_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
+          sudo mount -o loop $COMBO_IMAGE.img openwrt-ro
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
           git pull
