@@ -383,32 +383,19 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           git pull
 
-      - name: Prepare Toolchain Image Form Releases
-        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true'
+      - name: Prepare Toolchain/Package Image Form Releases
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && env.PACKAGE_RELEASE_UPLOAD == 'true'
         run: |
           mkdir -p workspace
           cd workspace
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
+            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.img.0$i >> $PACKAGE_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
           sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
-          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
-          cd $OPENWRT_ROOT_PATH
-          git pull
-
-      - name: Prepare Package Image Form Releases
-        if: env.PACKAGE_RELEASE_UPLOAD == 'true'
-        run: |
-          mkdir -p workspace
-          cd workspace
-          for i in {0..9}
-          do
-            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$PACKAGE_TAG/$PACKAGE_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
-          done
-          mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
+          sudo mount -o loop $PACKAGE_IMAGE.img openwrt-ro
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
           git pull
