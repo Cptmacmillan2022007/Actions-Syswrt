@@ -16,7 +16,8 @@ env:
   SOURCE_BRANCH: master
   FEEDS_SH: scripts/custom-feeds.sh
   SETTINGS_SH: scripts/custom-settings.sh
-  COMBO_TAG: combo
+  COMBO_TAG: Combo
+  DL_TAG: Download
   COMBO_RELEASE_UPLOAD: true
   FIRMWARE_RELEASE_UPLOAD: true
   TZ: Asia/Shanghai
@@ -44,7 +45,7 @@ jobs:
           sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
           sudo -E apt-get -qq update
           sudo -E apt-get -qq full-upgrade
-          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev python3-setuptools
+          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev python3-setuptools zip
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
           sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
@@ -167,6 +168,14 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
+      - name: Compress DL Folder
+        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        run: |
+          cd workspace
+          mkdir -p $GITHUB_WORKSPACE/dl
+          zip -9 -r -s 1900m dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.zip $OPENWRT_ROOT_PATH/dl
+          ls -lh $GITHUB_WORKSPACE/dl
+
       - name: Generate Combo Image
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
@@ -184,16 +193,38 @@ jobs:
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.DL_TAG }}
+          fail-if-no-assets: false
+          fail-if-no-release: false
+
+      - name: Delete Old Combo Assets From Release
+        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+        uses: mknejp/delete-release-assets@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.COMBO_TAG }}
           assets: "combo-${{ env.COMBO_IMAGE }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
+      - name: Upload DL Archive To Release
+        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+        uses: ncipollo/release-action@main
+        with:
+          name: dl-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+          allowUpdates: true
+          replacesArtifacts: true
+          tag: ${{ env.DL_TAG }}
+          body: ${{ env.BUILD_DATE }}
+          commit: ${{ env.CURRENT_BRANCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: dl/*
+        
       - name: Upload Combo Image To Release
         if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: combo-image
+          name: combo-image-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.COMBO_TAG }}
@@ -283,19 +314,6 @@ jobs:
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
           git pull
-
-      - name: Load Custom Feeds
-        run: |
-          [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
-          cd $OPENWRT_ROOT_PATH
-          chmod +x $FEEDS_SH
-          $OPENWRT_ROOT_PATH/$FEEDS_SH
-
-      - name: Install Feeds
-        run: |
-          cd $OPENWRT_ROOT_PATH
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
 
       - name: Load Custom Configuration
         run: |
