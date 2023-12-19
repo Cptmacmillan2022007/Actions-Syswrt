@@ -99,6 +99,9 @@ jobs:
           export COMBO_IMAGE="combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "COMBO_IMAGE=$COMBO_IMAGE" >> $GITHUB_ENV
           echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> $GITHUB_OUTPUT
+          export DL_BIN="dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          echo "DL_BIN=$DL_BIN" >> $GITHUB_ENV
+          echo "DL_BIN=$(echo $DL_BIN)" >> $GITHUB_OUTPUT
 
       - name: Compare Combo Hash
         id: combohash
@@ -188,12 +191,13 @@ jobs:
           echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/output/combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
           ls -lh $GITHUB_WORKSPACE/output
 
-      - name: Delete Old Combo Assets From Release
+      - name: Delete Old DL Assets From Release
         if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.DL_TAG }}
+          assets: "dl-${{ env.DL_BIN }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
