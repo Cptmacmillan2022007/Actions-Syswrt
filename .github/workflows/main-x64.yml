@@ -36,6 +36,7 @@ jobs:
       DEVICE_TARGET: ${{ steps.env.outputs.DEVICE_TARGET }}
       DEVICE_SUBTARGET: ${{ steps.env.outputs.DEVICE_SUBTARGET }}
       COMBO_IMAGE: ${{ steps.env.outputs.COMBO_IMAGE }}
+      DL_BIN: ${{ steps.env.outputs.DL_BIN }}
 
     steps:
       - name: Initialization Environment
