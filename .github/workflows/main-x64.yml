@@ -19,6 +19,7 @@ env:
   COMBO_TAG: Combo
   DL_TAG: Download
   COMBO_RELEASE_UPLOAD: true
+  DL_RELEASE_UPLOAD: true
   FIRMWARE_RELEASE_UPLOAD: true
   TZ: Asia/Shanghai
 
@@ -97,10 +98,10 @@ jobs:
           export DEVICE_PLATFORM=$(cat .config | grep CONFIG_TARGET_ARCH_PACKAGES | awk -F '"' '{print $2}')
           echo "DEVICE_PLATFORM=$DEVICE_PLATFORM" >> $GITHUB_ENV
           echo "DEVICE_PLATFORM=$(echo $DEVICE_PLATFORM)" >> $GITHUB_OUTPUT
-          export COMBO_IMAGE="combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          export COMBO_IMAGE="Combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "COMBO_IMAGE=$COMBO_IMAGE" >> $GITHUB_ENV
           echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> $GITHUB_OUTPUT
-          export DL_BIN="dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          export DL_BIN="DL-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "DL_BIN=$DL_BIN" >> $GITHUB_ENV
           echo "DL_BIN=$(echo $DL_BIN)" >> $GITHUB_OUTPUT
 
@@ -141,7 +142,7 @@ jobs:
           make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
           rm -rf .config* bin
 
-      - name: Load Custom Feeds
+      - name: Preload Custom Feeds
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
           [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
@@ -149,14 +150,14 @@ jobs:
           chmod +x $FEEDS_SH
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
-      - name: Install DL Feeds
+      - name: Preload DL Feeds
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Load Custom Configuration
+      - name: Preload Custom Configuration
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
           [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
@@ -172,13 +173,27 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           make download -j64
 
+      - name: Compare DL Hash
+        id: dlhash
+        run: |
+          cd $OPENWRT_ROOT_PATH
+          export DL_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
+          echo "DL_HASH=$DL_HASH" >> $GITHUB_ENV
+          echo "DL_HASH=$(echo $DL_HASH)" >> $GITHUB_OUTPUT
+          echo "DL_HASH is $DL_HASH"
+          export DLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_BIN.hash)
+          echo "DLCACHE_HASH is $DLCACHE_HASH"
+          if [ -z "$DLCACHE_HASH" ] || [ "$DL_HASH" != "$DLCACHE_HASH" ]; then
+            echo "REBUILD_DL=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compress DL Folder
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.dlhash.outputs.REBUILD_DL == 'true'
         run: |
           cd workspace
-          mkdir -p $GITHUB_WORKSPACE/dl
-          zip -9 -r -s 1900m dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.zip $OPENWRT_ROOT_PATH/dl
-          ls -lh $GITHUB_WORKSPACE/dl
+          mkdir -p $GITHUB_WORKSPACE/download
+          zip -9 -r -s 1900m $GITHUB_WORKSPACE/download/$DL_BIN.zip $OPENWRT_ROOT_PATH/dl
+          ls -lh $GITHUB_WORKSPACE/download
 
       - name: Generate Combo Image
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
@@ -189,16 +204,16 @@ jobs:
           split -d -b 1900M $COMBO_IMAGE $GITHUB_WORKSPACE/output/$COMBO_IMAGE.img.
           rm $COMBO_IMAGE
           cd $OPENWRT_ROOT_PATH
-          echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/output/combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET.hash
+          echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/output/$COMBO_IMAGE.hash
           ls -lh $GITHUB_WORKSPACE/output
 
       - name: Delete Old DL Assets From Release
-        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.DL_TAG }}
-          assets: "dl-${{ env.DL_BIN }}.*"
+          assets: "DL-${{ env.DL_BIN }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
@@ -208,28 +223,28 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.COMBO_TAG }}
-          assets: "combo-${{ env.COMBO_IMAGE }}.*"
+          assets: "Combo-${{ env.COMBO_IMAGE }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
       - name: Upload DL Archive To Release
-        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: dl-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+          name: DL-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.DL_TAG }}
           body: ${{ env.BUILD_DATE }}
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: dl/*
+          artifacts: download/*
         
       - name: Upload Combo Image To Release
         if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: combo-image-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+          name: Combo-image-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.COMBO_TAG }}
@@ -392,6 +407,8 @@ jobs:
         with:
           name: bin-archive
           path: ${{ env.OPENWRT_ROOT_PATH }}/${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}.zip
+          if-no-files-found: warn
+          compression-level: 9
 
   Upload:
     needs: [Mainbuild, Prebuild]
