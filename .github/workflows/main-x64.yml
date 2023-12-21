@@ -16,8 +16,8 @@ env:
   SOURCE_BRANCH: master
   FEEDS_SH: scripts/custom-feeds.sh
   SETTINGS_SH: scripts/custom-settings.sh
-  COMBO_TAG: Combo
-  DL_TAG: Download
+  COMBO_TAG: combo
+  DL_TAG: download
   COMBO_RELEASE_UPLOAD: true
   DL_RELEASE_UPLOAD: true
   FIRMWARE_RELEASE_UPLOAD: true
@@ -98,10 +98,10 @@ jobs:
           export DEVICE_PLATFORM=$(cat .config | grep CONFIG_TARGET_ARCH_PACKAGES | awk -F '"' '{print $2}')
           echo "DEVICE_PLATFORM=$DEVICE_PLATFORM" >> $GITHUB_ENV
           echo "DEVICE_PLATFORM=$(echo $DEVICE_PLATFORM)" >> $GITHUB_OUTPUT
-          export COMBO_IMAGE="Combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          export COMBO_IMAGE="combo-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "COMBO_IMAGE=$COMBO_IMAGE" >> $GITHUB_ENV
           echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> $GITHUB_OUTPUT
-          export DL_BIN="DL-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          export DL_BIN="dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
           echo "DL_BIN=$DL_BIN" >> $GITHUB_ENV
           echo "DL_BIN=$(echo $DL_BIN)" >> $GITHUB_OUTPUT
 
@@ -213,7 +213,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.DL_TAG }}
-          assets: "DL-${{ env.DL_BIN }}.*"
+          assets: "dl-${{ env.DL_BIN }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
@@ -231,7 +231,7 @@ jobs:
         if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: DL-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+          name: download-bin
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.DL_TAG }}
@@ -244,7 +244,7 @@ jobs:
         if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: Combo-image-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+          name: combo-image
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.COMBO_TAG }}
