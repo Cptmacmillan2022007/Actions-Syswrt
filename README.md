@@ -1,6 +1,11 @@
 # Actions-Syswrt
 Compile OpenWrt/LEDE with github actions project Github Actions線上編譯OpenWrt/LEDE項目
 
+# 友善提醒(不是歧視，不要聯想！不要聯想！不要聯想)
+# 為了中國大陸用戶的安全，禁止將本項目上載到大陸境內的任何程式碼託管平台！ ！ ！ 一旦因此發生任何问题，本人概不負責！ ！ ！
+# 為了中國大陸用戶的安全，禁止將本項目上載到大陸境內的任何程式碼託管平台！ ！ ！ 一旦因此發生任何问题，本人概不負責！ ！ ！
+# 為了中國大陸用戶的安全，禁止將本項目上載到大陸境內的任何程式碼託管平台！ ！ ！ 一旦因此發生任何问题，本人概不負責！ ！ ！
+
 ## [English Users](https://github.com/Cptmacmillan2022007/Actions-Syswrt/edit/main/README_EN.md)
 
 ## [Japanese Users/日本のユーザー](https://github.com/Cptmacmillan2022007/Actions-Syswrt/edit/main/README_JP.md)
