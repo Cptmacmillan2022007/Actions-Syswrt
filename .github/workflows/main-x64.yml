@@ -194,8 +194,8 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/download
           tar -cvf $GITHUB_WORKSPACE/download/$DL_BIN.tar $OPENWRT_ROOT_PATH/dl/*
           xz -9e -zvv $GITHUB_WORKSPACE/download/$DL_BIN.tar
-          split -d -b 1900m $DL_BIN $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz.
-          rm $DL_BIN
+          split -d -b 1900m $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz.
+          rm $DL_BIN.tar
           cd $OPENWRT_ROOT_PATH
           echo $DLCACHE_HASH > $GITHUB_WORKSPACE/download/$DL_BIN.hash
           ls -lh $GITHUB_WORKSPACE/download
