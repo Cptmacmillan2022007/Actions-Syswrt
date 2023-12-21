@@ -2,9 +2,9 @@
 Compile OpenWrt/LEDE with github actions project Github Actions
 
 # Friendly reminder (not discrimination, don’t associate! Don’t associate! Don’t associate)
-# For the safety of users in a mysterious oriental country, it is prohibited to upload this project to any code hosting platform in a mysterious oriental country! ! ! I will not be held responsible if any problems occur as a result! ! !
-# For the safety of users in a mysterious oriental country, it is prohibited to upload this project to any code hosting platform in a mysterious oriental country! ! ! I will not be held responsible if any problems occur as a result! ! !
-# For the safety of users in a mysterious oriental country, it is prohibited to upload this project to any code hosting platform in a mysterious oriental country! ! ! I will not be held responsible if any problems occur as a result! ! !
+# For the safety of users in a mysterious Eastern country, it is prohibited to upload this project to any code hosting platform in a mysterious Eastern country! ! ! I will not be held responsible if any problems occur as a result! ! !
+# For the safety of users in a mysterious Eastern country, it is prohibited to upload this project to any code hosting platform in a mysterious Eastern country! ! ! I will not be held responsible if any problems occur as a result! ! !
+# For the safety of users in a mysterious Eastern country, it is prohibited to upload this project to any code hosting platform in a mysterious Eastern country! ! ! I will not be held responsible if any problems occur as a result! ! !
 
 # I.This project uses github actions to compile the OpenWrt/LEDE system online
 
