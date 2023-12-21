@@ -3,7 +3,7 @@ Compile OpenWrt/LEDE with github actions project Github Actions線上編譯OpenW
 
 ## [English Users](https://github.com/Cptmacmillan2022007/Actions-Syswrt/edit/main/README_EN.md)
 
-## [Japanese Users](https://github.com/Cptmacmillan2022007/Actions-Syswrt/edit/main/README_JP.md)
+## [Japanese Users/日本のユーザー](https://github.com/Cptmacmillan2022007/Actions-Syswrt/edit/main/README_JP.md)
 
 # I.本專案使用github actions線上編譯OpenWrt/LEDE系統
 
