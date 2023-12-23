@@ -61,8 +61,8 @@ jobs:
         id: clone
         run: |
           df -hT $PWD
-          git clone $SOURCE_URL -b $SOURCE_BRANCH workspace/openwrt
-          cd workspace/openwrt
+          git clone $SOURCE_URL -b $SOURCE_BRANCH workdir/openwrt
+          cd workdir/openwrt
           echo "OPENWRT_ROOT_PATH=$PWD" >> $GITHUB_ENV
           echo "OPENWRT_ROOT_PATH=$(echo $PWD)" >> $GITHUB_OUTPUT
 
@@ -190,9 +190,9 @@ jobs:
       - name: Compress DL Folder
         if: steps.dlhash.outputs.REBUILD_DL == 'true'
         run: |
-          cd workspace
+          cd workdir
           mkdir -p $GITHUB_WORKSPACE/download
-          tar -cvf $GITHUB_WORKSPACE/download/$DL_BIN.tar $OPENWRT_ROOT_PATH/dl/*
+          tar -cvf $GITHUB_WORKSPACE/download/$DL_BIN.tar -C $OPENWRT_ROOT_PATH/ dl/
           xz -9e -zvv $GITHUB_WORKSPACE/download/$DL_BIN.tar
           split -d -b 1900m $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz.
           rm $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz
@@ -203,7 +203,7 @@ jobs:
       - name: Generate Combo Image
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
         run: |
-          cd workspace
+          cd workdir
           mksquashfs openwrt $COMBO_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
           mkdir -p $GITHUB_WORKSPACE/output
           split -d -b 1900M $COMBO_IMAGE $GITHUB_WORKSPACE/output/$COMBO_IMAGE.img.
@@ -228,7 +228,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.COMBO_TAG }}
-          assets: "Combo-${{ env.COMBO_IMAGE }}.*"
+          assets: "combo-${{ env.COMBO_IMAGE }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
@@ -328,8 +328,8 @@ jobs:
       - name: Prepare Combo Image Form Releases
         if: env.COMBO_RELEASE_UPLOAD == 'true'
         run: |
-          mkdir -p workspace
-          cd workspace
+          mkdir -p workdir
+          cd workdir
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$COMBO_TAG/$COMBO_IMAGE.img.0$i >> $COMBO_IMAGE.img || break
@@ -371,6 +371,7 @@ jobs:
             sed -i "s/DEVICE_TARGET/$DEVICE_TARGET/g" distfeeds.conf
             sed -i "s/DEVICE_PLATFORM/$DEVICE_PLATFORM/g" distfeeds.conf
             cd $OPENWRT_ROOT_PATH
+            git clone https://git.openwrt.org/project/usign.git
             cd usign
             cmake .
             make
