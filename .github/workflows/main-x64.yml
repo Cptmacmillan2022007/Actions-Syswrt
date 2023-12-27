@@ -393,20 +393,22 @@ jobs:
       - name: Generate Firmware
         id: generate
         run: |
-          mkdir -p $OPENWRT_ROOT_PATH/files/etc/opkg
-          cd $OPENWRT_ROOT_PATH/files/etc/opkg
-          cp $GITHUB_WORKSPACE/data/opkg/distfeeds.conf .
-          sed -i "s/DEVICE_SUBTARGET/$DEVICE_SUBTARGET/g" distfeeds.conf
-          sed -i "s/DEVICE_TARGET/$DEVICE_TARGET/g" distfeeds.conf
-          sed -i "s/DEVICE_PLATFORM/$DEVICE_PLATFORM/g" distfeeds.conf
-          cd $OPENWRT_ROOT_PATH
-          git clone https://git.openwrt.org/project/usign.git
-          cd usign
-          cmake .
-          make
-          sudo mv usign /bin
-          mkdir -p $OPENWRT_ROOT_PATH/files/etc/opkg/keys
-          cd $OPENWRT_ROOT_PATH/files/etc/opkg/keys
+          if grep -q $DEVICE_TARGET/$DEVICE_SUBTARGET $GITHUB_WORKSPACE/data/support-targets.txt; then
+            mkdir -p $OPENWRT_ROOT_PATH/files/etc/opkg
+            cd $OPENWRT_ROOT_PATH/files/etc/opkg
+            cp $GITHUB_WORKSPACE/data/opkg/distfeeds.conf .
+            sed -i "s/DEVICE_SUBTARGET/$DEVICE_SUBTARGET/g" distfeeds.conf
+            sed -i "s/DEVICE_TARGET/$DEVICE_TARGET/g" distfeeds.conf
+            sed -i "s/DEVICE_PLATFORM/$DEVICE_PLATFORM/g" distfeeds.conf
+            cd $OPENWRT_ROOT_PATH
+            git clone https://git.openwrt.org/project/usign.git
+            cd usign
+            cmake .
+            make
+            sudo mv usign /bin
+            mkdir -p $OPENWRT_ROOT_PATH/files/etc/opkg/keys
+            cd $OPENWRT_ROOT_PATH/files/etc/opkg/keys
+          fi
           cd $OPENWRT_ROOT_PATH
           make package/install -j$(nproc) || make package/install -j1 V=s
           make target/install -j$(nproc) || make target/install -j1 V=s
