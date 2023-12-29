@@ -29,6 +29,7 @@ jobs:
     permissions: write-all
 
     outputs:
+      GITHUB_REPOSITORY: ${{ steps.checkout.outputs.GITHUB_REPOSITORY }}
       OPENWRT_ROOT_PATH: ${{ steps.clone.outputs.OPENWRT_ROOT_PATH }}
       CURRENT_BRANCH: ${{ steps.env.outputs.CURRENT_BRANCH }}
       SOURCE_OWNER: ${{ steps.env.outputs.SOURCE_OWNER }}
@@ -55,6 +56,7 @@ jobs:
           mkdir -p workdir
 
       - name: Checkout
+        id: checkout
         uses: actions/checkout@main
 
       - name: Clone Source Code
@@ -80,6 +82,9 @@ jobs:
           export CURRENT_BRANCH="$(git symbolic-ref --short HEAD)"
           echo "CURRENT_BRANCH=$CURRENT_BRANCH" >> $GITHUB_ENV
           echo "CURRENT_BRANCH=$(echo $CURRENT_BRANCH)" >> $GITHUB_OUTPUT
+          export GITHUB_REPOSITORY="${{ github.repository }}"
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY" >> $GITHUB_ENV
+          echo "GITHUB_REPOSITORY=$(echo $GITHUB_REPOSITORY)" >> $GITHUB_OUTPUT
           export BUILD_DATE=$(date +"%Y-%m-%d")
           echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
           cd $OPENWRT_ROOT_PATH
@@ -515,3 +520,15 @@ jobs:
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: ${{ env.OPENWRT_ROOT_PATH }}/bin/targets/${{ env.DEVICE_TARGET }}/${{ env.DEVICE_SUBTARGET }}/*
+
+  Delete-Workflows-Run:
+    if: ${{ always() }}
+    needs: [Upload, Mainbuild, Prebuild]
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          retain_days: 7
