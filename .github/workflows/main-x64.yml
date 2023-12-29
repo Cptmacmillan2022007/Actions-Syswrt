@@ -119,7 +119,7 @@ jobs:
           echo "COMBO_HASH=$COMBO_HASH" >> $GITHUB_ENV
           echo "COMBO_HASH=$(echo $COMBO_HASH)" >> $GITHUB_OUTPUT
           echo "COMBO_HASH is $COMBO_HASH"
-          export COMBOCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$COMBO_TAG/$COMBO_IMAGE.hash)
+          export COMBOCACHE_HASH=$(curl -fSsL https://github.com/${{ github.repository }}/releases/download/$COMBO_TAG/$COMBO_IMAGE.hash)
           echo "COMBOCACHE_HASH is $COMBOCACHE_HASH"
           if [ -z "$COMBOCACHE_HASH" ] || [ "$COMBO_HASH" != "$COMBOCACHE_HASH" ]; then
             echo "REBUILD_COMBO=true" >> "$GITHUB_OUTPUT"
