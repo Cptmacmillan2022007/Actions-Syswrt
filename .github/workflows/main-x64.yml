@@ -58,7 +58,7 @@ jobs:
         id: checkout
         uses: actions/checkout@main
         with:
-          repository: ${{ github.repository }} >> $GITHUB_REPOSITORY
+          repository: ${{ github.repository }}
 
       - name: Clone Source Code
         id: clone
@@ -83,6 +83,9 @@ jobs:
           export CURRENT_BRANCH="$(git symbolic-ref --short HEAD)"
           echo "CURRENT_BRANCH=$CURRENT_BRANCH" >> $GITHUB_ENV
           echo "CURRENT_BRANCH=$(echo $CURRENT_BRANCH)" >> $GITHUB_OUTPUT
+          export GITHUB_REPOSITORY="${{ github.repository }}"
+          echo "GITHUB_REPOSITORY=${{ github.repository }}" >> $GITHUB_ENV
+          echo "GITHUB_REPOSITORY=$(echo ${{ github.repository }})" >> $GITHUB_OUTPUT
           export BUILD_DATE=$(date +"%Y-%m-%d")
           echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
           cd $OPENWRT_ROOT_PATH
