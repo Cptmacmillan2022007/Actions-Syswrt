@@ -63,8 +63,8 @@ jobs:
           df -hT $PWD
           git clone $SOURCE_URL -b $SOURCE_BRANCH workspace/openwrt
           cd workspace/openwrt
-          echo "OPENWRT_ROOT_PATH=$PWD" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo $PWD)" >> $GITHUB_OUTPUT
+          echo "OPENWRT_ROOT_PATH=$PWD" >> "$GITHUB_ENV"
+          echo "OPENWRT_ROOT_PATH=$(echo $PWD)" >> "$GITHUB_OUTPUT"
 
       - name: Generate Toolchain Config
         run: |
@@ -78,45 +78,43 @@ jobs:
         id: env
         run: |
           export CURRENT_BRANCH="$(git symbolic-ref --short HEAD)"
-          echo "CURRENT_BRANCH=$CURRENT_BRANCH" >> $GITHUB_ENV
-          echo "CURRENT_BRANCH=$(echo $CURRENT_BRANCH)" >> $GITHUB_OUTPUT
-          export BUILD_DATE=$(date +"%Y-%m-%d")
-          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$CURRENT_BRANCH" >> "$GITHUB_ENV"
+          echo "CURRENT_BRANCH=$(echo $CURRENT_BRANCH)" >> "$GITHUB_OUTPUT"
           cd $OPENWRT_ROOT_PATH
           export SOURCE_OWNER="$(echo $SOURCE_URL | awk -F '/' '{print $(NF-1)}')"
-          echo "SOURCE_OWNER=$SOURCE_OWNER" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo $SOURCE_OWNER)" >> $GITHUB_OUTPUT
+          echo "SOURCE_OWNER=$SOURCE_OWNER" >> "$GITHUB_ENV"
+          echo "SOURCE_OWNER=$(echo $SOURCE_OWNER)" >> "$GITHUB_OUTPUT"
           export SOURCE_REPO="$(echo $SOURCE_URL | awk -F '/' '{print $(NF)}')"
-          echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo $SOURCE_REPO)" >> $GITHUB_OUTPUT
+          echo "SOURCE_REPO=$SOURCE_REPO" >> "$GITHUB_ENV"
+          echo "SOURCE_REPO=$(echo $SOURCE_REPO)" >> "$GITHUB_OUTPUT"
           export DEVICE_TARGET=$(cat .config | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
-          echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo $DEVICE_TARGET)" >> $GITHUB_OUTPUT
+          echo "DEVICE_TARGET=$DEVICE_TARGET" >> "$GITHUB_ENV"
+          echo "DEVICE_TARGET=$(echo $DEVICE_TARGET)" >> "$GITHUB_OUTPUT"
           export DEVICE_SUBTARGET=$(cat .config | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
-          echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo $DEVICE_SUBTARGET)" >> $GITHUB_OUTPUT
+          echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> "$GITHUB_ENV"
+          echo "DEVICE_SUBTARGET=$(echo $DEVICE_SUBTARGET)" >> "$GITHUB_OUTPUT"
           export DEVICE_PLATFORM=$(cat .config | grep CONFIG_TARGET_ARCH_PACKAGES | awk -F '"' '{print $2}')
-          echo "DEVICE_PLATFORM=$DEVICE_PLATFORM" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo $DEVICE_PLATFORM)" >> $GITHUB_OUTPUT
+          echo "DEVICE_PLATFORM=$DEVICE_PLATFORM" >> "$GITHUB_ENV"
+          echo "DEVICE_PLATFORM=$(echo $DEVICE_PLATFORM)" >> "$GITHUB_OUTPUT"
           export COMBO_IMAGE="toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
-          echo "COMBO_IMAGE=$COMBO_IMAGE" >> $GITHUB_ENV
-          echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> $GITHUB_OUTPUT
+          echo "COMBO_IMAGE=$COMBO_IMAGE" >> "$GITHUB_ENV"
+          echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> "$GITHUB_OUTPUT"
           export DL_BIN="dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
-          echo "DL_BIN=$DL_BIN" >> $GITHUB_ENV
-          echo "DL_BIN=$(echo $DL_BIN)" >> $GITHUB_OUTPUT
+          echo "DL_BIN=$DL_BIN" >> "$GITHUB_ENV"
+          echo "DL_BIN=$(echo $DL_BIN)" >> "$GITHUB_OUTPUT"
 
       - name: Compare Combo Hash
         id: combohash
         run: |
           cd $OPENWRT_ROOT_PATH
           export COMBO_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          echo "COMBO_HASH=$COMBO_HASH" >> $GITHUB_ENV
-          echo "COMBO_HASH=$(echo $COMBO_HASH)" >> $GITHUB_OUTPUT
+          echo "COMBO_HASH=$COMBO_HASH" >> "$GITHUB_ENV"
+          echo "COMBO_HASH=$(echo $COMBO_HASH)" >> "$GITHUB_OUTPUT"
           echo "COMBO_HASH is $COMBO_HASH"
           export COMBOCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$COMBO_IMAGE.hash)
           echo "COMBOCACHE_HASH is $COMBOCACHE_HASH"
           if [ -z "$COMBOCACHE_HASH" ] || [ "$COMBO_HASH" != "$COMBOCACHE_HASH" ]; then
-            echo "REBUILD_COMBO=true" >> "$GITHUB_OUTPUT"
+            echo "REBUILD_COMBO=true" >> ""$GITHUB_OUTPUT""
           fi
 
       - name: Preload Toolchain Feeds
@@ -178,13 +176,13 @@ jobs:
         run: |
           cd $OPENWRT_ROOT_PATH
           export DL_HASH=$(git log --pretty=tformat:"%H" -n1 dl)
-          echo "DL_HASH=$DL_HASH" >> $GITHUB_ENV
-          echo "DL_HASH=$(echo $DL_HASH)" >> $GITHUB_OUTPUT
+          echo "DL_HASH=$DL_HASH" >> "$GITHUB_ENV"
+          echo "DL_HASH=$(echo $DL_HASH)" >> "$GITHUB_OUTPUT"
           echo "DL_HASH is $DL_HASH"
           export DLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_BIN.hash)
           echo "DLCACHE_HASH is $DLCACHE_HASH"
           if [ -z "$DLCACHE_HASH" ] || [ "$DL_HASH" != "$DLCACHE_HASH" ]; then
-            echo "REBUILD_DL=true" >> "$GITHUB_OUTPUT"
+            echo "REBUILD_DL=true" >> ""$GITHUB_OUTPUT""
           fi
 
       - name: Compress DL Folder
@@ -249,7 +247,6 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.DL_TAG }}
-          body: ${{ env.BUILD_DATE }}
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: download/*
@@ -262,7 +259,6 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.TOOLCHAIN_TAG }}
-          body: ${{ env.BUILD_DATE }}
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: output/*
@@ -275,14 +271,14 @@ jobs:
     steps:
       - name: Restore Variables
         run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Prebuild.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Prebuild.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Prebuild.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Prebuild.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Prebuild.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "COMBO_IMAGE=$(echo '${{needs.Prebuild.outputs.COMBO_IMAGE}}')" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$(echo '${{needs.Prebuild.outputs.CURRENT_BRANCH}}')" >> "$GITHUB_ENV"
+          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Prebuild.outputs.OPENWRT_ROOT_PATH}}')" >> "$GITHUB_ENV"
+          echo "SOURCE_OWNER=$(echo '${{needs.Prebuild.outputs.SOURCE_OWNER}}')" >> "$GITHUB_ENV"
+          echo "SOURCE_REPO=$(echo '${{needs.Prebuild.outputs.SOURCE_REPO}}')" >> "$GITHUB_ENV"
+          echo "DEVICE_PLATFORM=$(echo '${{needs.Prebuild.outputs.DEVICE_PLATFORM}}')" >> "$GITHUB_ENV"
+          echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> "$GITHUB_ENV"
+          echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> "$GITHUB_ENV"
+          echo "COMBO_IMAGE=$(echo '${{needs.Prebuild.outputs.COMBO_IMAGE}}')" >> "$GITHUB_ENV"
 
       - name: Initialization Environment
         env:
@@ -457,14 +453,14 @@ jobs:
 
       - name: Restore Variables
         run: |
-          echo "CURRENT_BRANCH=$(echo '${{needs.Prebuild.outputs.CURRENT_BRANCH}}')" >> $GITHUB_ENV
-          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Prebuild.outputs.OPENWRT_ROOT_PATH}}')" >> $GITHUB_ENV
-          echo "SOURCE_OWNER=$(echo '${{needs.Prebuild.outputs.SOURCE_OWNER}}')" >> $GITHUB_ENV
-          echo "SOURCE_REPO=$(echo '${{needs.Prebuild.outputs.SOURCE_REPO}}')" >> $GITHUB_ENV
-          echo "DEVICE_PLATFORM=$(echo '${{needs.Prebuild.outputs.DEVICE_PLATFORM}}')" >> $GITHUB_ENV
-          echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> $GITHUB_ENV
-          echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> $GITHUB_ENV
-          echo "COMBO_IMAGE=$(echo '${{needs.Prebuild.outputs.COMBO_IMAGE}}')" >> $GITHUB_ENV
+          echo "CURRENT_BRANCH=$(echo '${{needs.Prebuild.outputs.CURRENT_BRANCH}}')" >> "$GITHUB_ENV"
+          echo "OPENWRT_ROOT_PATH=$(echo '${{needs.Prebuild.outputs.OPENWRT_ROOT_PATH}}')" >> "$GITHUB_ENV"
+          echo "SOURCE_OWNER=$(echo '${{needs.Prebuild.outputs.SOURCE_OWNER}}')" >> "$GITHUB_ENV"
+          echo "SOURCE_REPO=$(echo '${{needs.Prebuild.outputs.SOURCE_REPO}}')" >> "$GITHUB_ENV"
+          echo "DEVICE_PLATFORM=$(echo '${{needs.Prebuild.outputs.DEVICE_PLATFORM}}')" >> "$GITHUB_ENV"
+          echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> "$GITHUB_ENV"
+          echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> "$GITHUB_ENV"
+          echo "COMBO_IMAGE=$(echo '${{needs.Prebuild.outputs.COMBO_IMAGE}}')" >> "$GITHUB_ENV"
 
       - name: Initialization Environment
         env:
@@ -488,7 +484,7 @@ jobs:
       - name: Organize Files
         run: |
           export BUILD_DATE=$(date +"%Y-%m-%d")
-          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
+          echo "BUILD_DATE=$BUILD_DATE" >> "$GITHUB_ENV"
           cd $OPENWRT_ROOT_PATH/bin/targets/$DEVICE_TARGET/$DEVICE_SUBTARGET
           rm -rf packages
           df -hT $PWD
