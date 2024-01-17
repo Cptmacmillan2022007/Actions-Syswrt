@@ -138,7 +138,7 @@ jobs:
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
           make toolchain/compile -j$(nproc) || make toolchain/compile -j1 V=s
-          rm -rf .config* bin
+          rm -rf .config* dl bin
 
       - name: Preload Custom Feeds
         if: steps.combohash.outputs.REBUILD_COMBO == 'true'
