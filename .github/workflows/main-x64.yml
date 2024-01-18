@@ -18,7 +18,7 @@ env:
   SETTINGS_SH: scripts/custom-settings.sh
   TOOLCHAIN_TAG: toolchain
   DL_TAG: dl
-  COMBO_RELEASE_UPLOAD: true
+  TOOLCHAIN_RELEASE_UPLOAD: true
   DL_RELEASE_UPLOAD: true
   FIRMWARE_RELEASE_UPLOAD: true
   TZ: Asia/Shanghai
@@ -36,8 +36,8 @@ jobs:
       DEVICE_PLATFORM: ${{ steps.env.outputs.DEVICE_PLATFORM }}
       DEVICE_TARGET: ${{ steps.env.outputs.DEVICE_TARGET }}
       DEVICE_SUBTARGET: ${{ steps.env.outputs.DEVICE_SUBTARGET }}
-      COMBO_IMAGE: ${{ steps.env.outputs.COMBO_IMAGE }}
-      DL_BIN: ${{ steps.env.outputs.DL_BIN }}
+      TOOLCHAIN_IMAGE: ${{ steps.env.outputs.TOOLCHAIN_IMAGE }}
+      DL_IMAGE: ${{ steps.env.outputs.DL_IMAGE }}
 
     steps:
       - name: Initialization Environment
@@ -96,29 +96,29 @@ jobs:
           export DEVICE_PLATFORM=$(cat .config | grep CONFIG_TARGET_ARCH_PACKAGES | awk -F '"' '{print $2}')
           echo "DEVICE_PLATFORM=$DEVICE_PLATFORM" >> "$GITHUB_ENV"
           echo "DEVICE_PLATFORM=$(echo $DEVICE_PLATFORM)" >> "$GITHUB_OUTPUT"
-          export COMBO_IMAGE="toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
-          echo "COMBO_IMAGE=$COMBO_IMAGE" >> "$GITHUB_ENV"
-          echo "COMBO_IMAGE=$(echo $COMBO_IMAGE)" >> "$GITHUB_OUTPUT"
-          export DL_BIN="dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
-          echo "DL_BIN=$DL_BIN" >> "$GITHUB_ENV"
-          echo "DL_BIN=$(echo $DL_BIN)" >> "$GITHUB_OUTPUT"
+          export TOOLCHAIN_IMAGE="toolchain-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          echo "TOOLCHAIN_IMAGE=$TOOLCHAIN_IMAGE" >> "$GITHUB_ENV"
+          echo "TOOLCHAIN_IMAGE=$(echo $TOOLCHAIN_IMAGE)" >> "$GITHUB_OUTPUT"
+          export DL_IMAGE="dl-$SOURCE_OWNER-$SOURCE_REPO-$SOURCE_BRANCH-$DEVICE_TARGET-$DEVICE_SUBTARGET"
+          echo "DL_IMAGE=$DL_IMAGE" >> "$GITHUB_ENV"
+          echo "DL_IMAGE=$(echo $DL_IMAGE)" >> "$GITHUB_OUTPUT"
 
-      - name: Compare Combo Hash
-        id: combohash
+      - name: Compare Toolchain Hash
+        id: toolchain
         run: |
           cd $OPENWRT_ROOT_PATH
-          export COMBO_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
-          echo "COMBO_HASH=$COMBO_HASH" >> "$GITHUB_ENV"
-          echo "COMBO_HASH=$(echo $COMBO_HASH)" >> "$GITHUB_OUTPUT"
-          echo "COMBO_HASH is $COMBO_HASH"
-          export COMBOCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$COMBO_IMAGE.hash)
-          echo "COMBOCACHE_HASH is $COMBOCACHE_HASH"
-          if [ -z "$COMBOCACHE_HASH" ] || [ "$COMBO_HASH" != "$COMBOCACHE_HASH" ]; then
-            echo "REBUILD_COMBO=true" >> ""$GITHUB_OUTPUT""
+          export TOOLCHAIN_HASH=$(git log --pretty=tformat:"%H" -n1 tools toolchain)
+          echo "TOOLCHAIN_HASH=$TOOLCHAIN_HASH" >> "$GITHUB_ENV"
+          echo "TOOLCHAIN_HASH=$(echo $TOOLCHAIN_HASH)" >> "$GITHUB_OUTPUT"
+          echo "TOOLCHAIN_HASH is $TOOLCHAIN_HASH"
+          export CACHETOOL_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.hash)
+          echo "CACHETOOL_HASH is $CACHETOOL_HASH"
+          if [ -z "$CACHETOOL_HASH" ] || [ "$TOOLCHAIN_HASH" != "$CACHETOOL_HASH" ]; then
+            echo "REBUILD_TOOLCHAIN=true" >> ""$GITHUB_OUTPUT""
           fi
 
       - name: Preload Toolchain Feeds
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
@@ -126,14 +126,14 @@ jobs:
           make defconfig
 
       - name: Compile Tools
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
           make tools/compile -j$(nproc) || make tools/compile -j1 V=s
 
       - name: Compile Toolchain
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           echo -e "$(nproc) thread compile"
@@ -141,7 +141,7 @@ jobs:
           rm -rf .config* dl bin
 
       - name: Preload Custom Feeds
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           [ -e $FEEDS_SH ] && cp -r $FEEDS_SH $OPENWRT_ROOT_PATH/$FEEDS_SH
           cd $OPENWRT_ROOT_PATH
@@ -149,14 +149,14 @@ jobs:
           $OPENWRT_ROOT_PATH/$FEEDS_SH
 
       - name: Preload DL Feeds
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd $OPENWRT_ROOT_PATH
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Preload Custom Configuration
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_ROOT_PATH/.config
           [ -e $SETTINGS_SH ] && cp $SETTINGS_SH $OPENWRT_ROOT_PATH/$SETTINGS_SH
@@ -179,9 +179,9 @@ jobs:
           echo "DL_HASH=$DL_HASH" >> "$GITHUB_ENV"
           echo "DL_HASH=$(echo $DL_HASH)" >> "$GITHUB_OUTPUT"
           echo "DL_HASH is $DL_HASH"
-          export DLCACHE_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_BIN.hash)
-          echo "DLCACHE_HASH is $DLCACHE_HASH"
-          if [ -z "$DLCACHE_HASH" ] || [ "$DL_HASH" != "$DLCACHE_HASH" ]; then
+          export CACHEDL_HASH=$(curl -fSsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_IMAGE.hash)
+          echo "CACHEDL_HASH is $CACHEDL_HASH"
+          if [ -z "$CACHEDL_HASH" ] || [ "$DL_HASH" != "$CACHEDL_HASH" ]; then
             echo "REBUILD_DL=true" >> ""$GITHUB_OUTPUT""
           fi
 
@@ -190,31 +190,31 @@ jobs:
         run: |
           cd workspace
           mkdir -p $GITHUB_WORKSPACE/download
-          tar -cvf $GITHUB_WORKSPACE/download/$DL_BIN.tar -C $OPENWRT_ROOT_PATH/ dl/
-          xz -9e -zvv $GITHUB_WORKSPACE/download/$DL_BIN.tar
-          split -d -b 1900m $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz.
-          rm $GITHUB_WORKSPACE/download/$DL_BIN.tar.xz
+          tar -cvf $GITHUB_WORKSPACE/download/$DL_IMAGE.tar -C $OPENWRT_ROOT_PATH/ dl/
+          xz -9e -zvv $GITHUB_WORKSPACE/download/$DL_IMAGE.tar
+          split -d -b 1900m $GITHUB_WORKSPACE/download/$DL_IMAGE.tar.xz $GITHUB_WORKSPACE/download/$DL_IMAGE.tar.xz.
+          rm $GITHUB_WORKSPACE/download/$DL_IMAGE.tar.xz
           cd $OPENWRT_ROOT_PATH
-          echo $DLCACHE_HASH > $GITHUB_WORKSPACE/download/$DL_BIN.hash
+          echo $DLCACHE_HASH > $GITHUB_WORKSPACE/download/$DL_IMAGE.hash
           ls -lh $GITHUB_WORKSPACE/download
 
-      - name: Generate Combo Image
-        if: steps.combohash.outputs.REBUILD_COMBO == 'true'
+      - name: Generate Toolchain Image
+        if: steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         run: |
           cd workspace
-          mksquashfs openwrt $COMBO_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
+          mksquashfs openwrt $TOOLCHAIN_IMAGE -force-gid 1001 -force-uid 1001 -comp zstd -Xcompression-level 22
           mkdir -p $GITHUB_WORKSPACE/output
-          split -d -b 1900M $COMBO_IMAGE $GITHUB_WORKSPACE/output/$COMBO_IMAGE.img.
-          rm $COMBO_IMAGE
+          split -d -b 1900M $TOOLCHAIN_IMAGE $GITHUB_WORKSPACE/output/$TOOLCHAIN_IMAGE.img.
+          rm $TOOLCHAIN_IMAGE
           cd $OPENWRT_ROOT_PATH
-          echo $COMBOCACHE_HASH > $GITHUB_WORKSPACE/output/$COMBO_IMAGE.hash
+          echo $CACHETOOL_HASH > $GITHUB_WORKSPACE/output/$TOOLCHAIN_IMAGE.hash
           ls -lh $GITHUB_WORKSPACE/output
 
-      - name: Upload Combo Image To Artifact
-        if: env.COMBO_RELEASE_UPLOAD != 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+      - name: Upload Toolchain Image To Artifact
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: actions/upload-artifact@main
         with:
-          name: ${{ env.COMBO_IMAGE }}
+          name: ${{ env.TOOLCHAIN_IMAGE }}
           path: output
           if-no-files-found: warn
           compression-level: 9
@@ -225,25 +225,25 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.DL_TAG }}
-          assets: "dl-${{ env.DL_BIN }}.*"
+          assets: "dl-${{ env.DL_IMAGE }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
-      - name: Delete Old Combo Assets From Release
-        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+      - name: Delete Old Toolchain Assets From Release
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: mknejp/delete-release-assets@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.TOOLCHAIN_TAG }}
-          assets: "toolchain-${{ env.COMBO_IMAGE }}.*"
+          assets: "toolchain-${{ env.TOOLCHAIN_IMAGE }}.*"
           fail-if-no-assets: false
           fail-if-no-release: false
 
-      - name: Upload DL Archive To Release
+      - name: Upload DL Image To Release
         if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: download-bin
+          name: dl-image
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.DL_TAG }}
@@ -251,11 +251,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: download/*
         
-      - name: Upload Combo Image To Release
-        if: env.COMBO_RELEASE_UPLOAD == 'true' && steps.combohash.outputs.REBUILD_COMBO == 'true'
+      - name: Upload Toolchain Image To Release
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
         uses: ncipollo/release-action@main
         with:
-          name: combo-image
+          name: toolchain-image
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.TOOLCHAIN_TAG }}
@@ -278,7 +278,8 @@ jobs:
           echo "DEVICE_PLATFORM=$(echo '${{needs.Prebuild.outputs.DEVICE_PLATFORM}}')" >> "$GITHUB_ENV"
           echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> "$GITHUB_ENV"
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> "$GITHUB_ENV"
-          echo "COMBO_IMAGE=$(echo '${{needs.Prebuild.outputs.COMBO_IMAGE}}')" >> "$GITHUB_ENV"
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Prebuild.outputs.TOOLCHAIN_IMAGE}}')" >> "$GITHUB_ENV"
+          echo "DL_IMAGE=$(echo '${{needs.Prebuild.outputs.DL_IMAGE}}')" >> "$GITHUB_ENV"
 
       - name: Initialization Environment
         env:
@@ -330,38 +331,74 @@ jobs:
           git fetch
           git checkout -t origin/$CURRENT_BRANCH
 
-      - name: Download Combo Image Form Artifacts
-        if: env.COMBO_RELEASE_UPLOAD != 'true'
+      - name: Download Toolchain Image Form Artifacts
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true'
         uses: actions/download-artifact@main
         with:
-          name: ${{ env.COMBO_IMAGE }}
+          name: ${{ env.TOOLCHAIN_IMAGE }}
           path: workspace
 
-      - name: Prepare Combo Image Form Artifacts
-        if: env.COMBO_RELEASE_UPLOAD != 'true'
+      - name: Download DL Image Form Artifacts
+        if: env.DL_RELEASE_UPLOAD != 'true'
+        uses: actions/download-artifact@main
+        with:
+          name: ${{ env.TOOLCHAIN_IMAGE }}
+          path: workspace
+
+      - name: Prepare Toolchain Image Form Artifacts
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true'
         run: |
           cd workspace
           for i in {0..9}
           do
-            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$COMBO_IMAGE.img.0$i >> $COMBO_IMAGE.img || break
+            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $COMBO_IMAGE.img openwrt-ro
+          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
           git pull
 
-      - name: Prepare Combo Image Form Releases
-        if: env.COMBO_RELEASE_UPLOAD == 'true'
+      - name: Prepare DL Image Form Artifacts
+        if: env.DL_RELEASE_UPLOAD != 'true'
+        run: |
+          cd workspace
+          for i in {0..9}
+          do
+            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_IMAGE.img.0$i >> $DL_IMAGE.img || break
+          done
+          mkdir openwrt-ro openwrt workdir overlay
+          sudo mount -o loop $DL_IMAGE.img openwrt-ro
+          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
+          cd $OPENWRT_ROOT_PATH
+          git pull
+
+      - name: Prepare Toolchain Image Form Releases
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true'
         run: |
           mkdir -p workspace
           cd workspace
           for i in {0..9}
           do
-            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$COMBO_IMAGE.img.0$i >> $COMBO_IMAGE.img || break
+            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $COMBO_IMAGE.img openwrt-ro
+          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
+          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
+          cd $OPENWRT_ROOT_PATH
+          git pull
+
+      - name: Prepare DL Image Form Releases
+        if: env.DL_RELEASE_UPLOAD == 'true'
+        run: |
+          mkdir -p workspace
+          cd workspace
+          for i in {0..9}
+          do
+            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_IMAGE.img.0$i >> $DL_IMAGE.img || break
+          done
+          mkdir openwrt-ro openwrt workdir overlay
+          sudo mount -o loop $DL_IMAGE.img openwrt-ro
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
           git pull
@@ -460,7 +497,7 @@ jobs:
           echo "DEVICE_PLATFORM=$(echo '${{needs.Prebuild.outputs.DEVICE_PLATFORM}}')" >> "$GITHUB_ENV"
           echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> "$GITHUB_ENV"
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> "$GITHUB_ENV"
-          echo "COMBO_IMAGE=$(echo '${{needs.Prebuild.outputs.COMBO_IMAGE}}')" >> "$GITHUB_ENV"
+          echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Prebuild.outputs.TOOLCHAIN_IMAGE}}')" >> "$GITHUB_ENV"
 
       - name: Initialization Environment
         env:
