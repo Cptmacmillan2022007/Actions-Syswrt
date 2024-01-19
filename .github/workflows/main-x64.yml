@@ -342,62 +342,37 @@ jobs:
         if: env.DL_RELEASE_UPLOAD != 'true'
         uses: actions/download-artifact@main
         with:
-          name: ${{ env.TOOLCHAIN_IMAGE }}
+          name: ${{ env.DL_IMAGE }}
           path: workspace
 
-      - name: Prepare Toolchain Image Form Artifacts
-        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true'
+      - name: Prepare Toolchain/Dl Image Form Artifacts
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && env.DL_RELEASE_UPLOAD != 'true'
         run: |
           cd workspace
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
-          done
-          mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
-          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
-          cd $OPENWRT_ROOT_PATH
-          git pull
-
-      - name: Prepare DL Image Form Artifacts
-        if: env.DL_RELEASE_UPLOAD != 'true'
-        run: |
-          cd workspace
-          for i in {0..9}
-          do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_IMAGE.img.0$i >> $DL_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
+          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
           sudo mount -o loop $DL_IMAGE.img openwrt-ro
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
           git pull
 
-      - name: Prepare Toolchain Image Form Releases
-        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true'
+      - name: Prepare Toolchain/Dl Image Form Releases
+        if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && env.DL_RELEASE_UPLOAD == 'true'
         run: |
           mkdir -p workspace
           cd workspace
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
-          done
-          mkdir openwrt-ro openwrt workdir overlay
-          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
-          sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
-          cd $OPENWRT_ROOT_PATH
-          git pull
-
-      - name: Prepare DL Image Form Releases
-        if: env.DL_RELEASE_UPLOAD == 'true'
-        run: |
-          mkdir -p workspace
-          cd workspace
-          for i in {0..9}
-          do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_IMAGE.img.0$i >> $DL_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
+          sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
           sudo mount -o loop $DL_IMAGE.img openwrt-ro
           sudo mount -t overlay overlay -o lowerdir=openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd $OPENWRT_ROOT_PATH
@@ -498,6 +473,7 @@ jobs:
           echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> "$GITHUB_ENV"
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> "$GITHUB_ENV"
           echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Prebuild.outputs.TOOLCHAIN_IMAGE}}')" >> "$GITHUB_ENV"
+          echo "DL_IMAGE=$(echo '${{needs.Prebuild.outputs.DL_IMAGE}}')" >> "$GITHUB_ENV"
 
       - name: Initialization Environment
         env:
