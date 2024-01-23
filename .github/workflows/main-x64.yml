@@ -114,7 +114,7 @@ jobs:
           export CACHETOOL_HASH=$(curl -fSsL "https://github.com/${{ github.repository }}/releases/download/${{ env.TOOLCHAIN_TAG }}/${{ env.TOOLCHAIN_IMAGE }}.hash")
           echo "CACHETOOL_HASH is $CACHETOOL_HASH"
           if [ -z "$CACHETOOL_HASH" ] || [ "$TOOLCHAIN_HASH" != "$CACHETOOL_HASH" ]; then
-            echo "REBUILD_TOOLCHAIN=true" >> ""$GITHUB_OUTPUT""
+            echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Preload Toolchain Feeds
@@ -182,10 +182,10 @@ jobs:
           export CACHEDL_HASH=$(curl -fSsL "https://github.com/${{ github.repository }}/releases/download/${{ env.DL_TAG }}/${{ env.DL_IMAGE }}.hash")
           echo "CACHEDL_HASH is $CACHEDL_HASH"
           if [ -z "$CACHEDL_HASH" ] || [ "$DL_HASH" != "$CACHEDL_HASH" ]; then
-            echo "REBUILD_DL=true" >> ""$GITHUB_OUTPUT""
+            echo "REBUILD_DL=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Compress DL Folder
+      - name: Generate Dl Image
         if: steps.dlhash.outputs.REBUILD_DL == 'true'
         run: |
           cd workspace
@@ -219,15 +219,14 @@ jobs:
           if-no-files-found: warn
           compression-level: 9
 
-      - name: Delete Old DL Assets From Release
-        if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
-        uses: mknejp/delete-release-assets@v1
+      - name: Upload Dl Image To Artifact
+        if: env.DL_RELEASE_UPLOAD != 'true' && steps.toolchain.outputs.REBUILD_DL == 'true'
+        uses: actions/upload-artifact@main
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ env.DL_TAG }}
-          assets: "dl-${{ env.DL_IMAGE }}.*"
-          fail-if-no-assets: false
-          fail-if-no-release: false
+          name: ${{ env.TOOLCHAIN_IMAGE }}
+          path: download
+          if-no-files-found: warn
+          compression-level: 9
 
       - name: Delete Old Toolchain Assets From Release
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
@@ -239,17 +238,15 @@ jobs:
           fail-if-no-assets: false
           fail-if-no-release: false
 
-      - name: Upload DL Image To Release
+      - name: Delete Old DL Assets From Release
         if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
-        uses: ncipollo/release-action@main
+        uses: mknejp/delete-release-assets@v1
         with:
-          name: dl-image
-          allowUpdates: true
-          replacesArtifacts: true
-          tag: ${{ env.DL_TAG }}
-          commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: download/*
+          tag: ${{ env.DL_TAG }}
+          assets: "dl-${{ env.DL_IMAGE }}.*"
+          fail-if-no-assets: false
+          fail-if-no-release: false
         
       - name: Upload Toolchain Image To Release
         if: env.TOOLCHAIN_RELEASE_UPLOAD == 'true' && steps.toolchain.outputs.REBUILD_TOOLCHAIN == 'true'
@@ -262,6 +259,18 @@ jobs:
           commit: ${{ env.CURRENT_BRANCH }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: output/*
+
+      - name: Upload Dl Image To Release
+        if: env.DL_RELEASE_UPLOAD == 'true' && steps.dlhash.outputs.REBUILD_DL == 'true'
+        uses: ncipollo/release-action@main
+        with:
+          name: dl-image
+          allowUpdates: true
+          replacesArtifacts: true
+          tag: ${{ env.DL_TAG }}
+          commit: ${{ env.CURRENT_BRANCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: download/*
 
   Mainbuild:
     needs: [Prebuild]
@@ -279,7 +288,6 @@ jobs:
           echo "DEVICE_TARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_TARGET}}')" >> "$GITHUB_ENV"
           echo "DEVICE_SUBTARGET=$(echo '${{needs.Prebuild.outputs.DEVICE_SUBTARGET}}')" >> "$GITHUB_ENV"
           echo "TOOLCHAIN_IMAGE=$(echo '${{needs.Prebuild.outputs.TOOLCHAIN_IMAGE}}')" >> "$GITHUB_ENV"
-          echo "DL_IMAGE=$(echo '${{needs.Prebuild.outputs.DL_IMAGE}}')" >> "$GITHUB_ENV"
 
       - name: Initialization Environment
         env:
@@ -345,14 +353,13 @@ jobs:
           name: ${{ env.DL_IMAGE }}
           path: workspace
 
-      - name: Prepare Toolchain/Dl Image Form Artifacts
-        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true' && env.DL_RELEASE_UPLOAD != 'true'
+      - name: Prepare Toolchain Image Form Artifacts
+        if: env.TOOLCHAIN_RELEASE_UPLOAD != 'true'
         run: |
           cd workspace
           for i in {0..9}
           do
             curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$TOOLCHAIN_TAG/$TOOLCHAIN_IMAGE.img.0$i >> $TOOLCHAIN_IMAGE.img || break
-            curl -fsL https://github.com/$GITHUB_REPOSITORY/releases/download/$DL_TAG/$DL_IMAGE.img.0$i >> $DL_IMAGE.img || break
           done
           mkdir openwrt-ro openwrt workdir overlay
           sudo mount -o loop $TOOLCHAIN_IMAGE.img openwrt-ro
