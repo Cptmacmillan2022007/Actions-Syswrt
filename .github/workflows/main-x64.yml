@@ -111,9 +111,9 @@ jobs:
           echo "TOOLCHAIN_HASH=$TOOLCHAIN_HASH" >> "$GITHUB_ENV"
           echo "TOOLCHAIN_HASH=$(echo $TOOLCHAIN_HASH)" >> "$GITHUB_OUTPUT"
           echo "TOOLCHAIN_HASH is $TOOLCHAIN_HASH"
-          export CACHETOOL_HASH=$(curl -fSsL "https://github.com/${{ github.repository }}/releases/download/${{ env.TOOLCHAIN_TAG }}/${{ env.TOOLCHAIN_IMAGE }}.hash")
-          echo "CACHETOOL_HASH is $CACHETOOL_HASH"
-          if [ -z "$CACHETOOL_HASH" ] || [ "$TOOLCHAIN_HASH" != "$CACHETOOL_HASH" ]; then
+          export CACHE_HASH=$(curl -fSsL "https://github.com/${{ github.repository }}/releases/download/${{ env.TOOLCHAIN_TAG }}/${{ env.TOOLCHAIN_IMAGE }}.hash")
+          echo "CACHET_HASH is $CACHE_HASH"
+          if [ -z "$CACHE_HASH" ] || [ "$TOOLCHAIN_HASH" != "$CACHE_HASH" ]; then
             echo "REBUILD_TOOLCHAIN=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -179,9 +179,9 @@ jobs:
           echo "DL_HASH=$DL_HASH" >> "$GITHUB_ENV"
           echo "DL_HASH=$(echo $DL_HASH)" >> "$GITHUB_OUTPUT"
           echo "DL_HASH is $DL_HASH"
-          export CACHEDL_HASH=$(curl -fSsL "https://github.com/${{ github.repository }}/releases/download/${{ env.DL_TAG }}/${{ env.DL_IMAGE }}.hash")
-          echo "CACHEDL_HASH is $CACHEDL_HASH"
-          if [ -z "$CACHEDL_HASH" ] || [ "$DL_HASH" != "$CACHEDL_HASH" ]; then
+          export CACHE_HASH=$(curl -fSsL "https://github.com/${{ github.repository }}/releases/download/${{ env.DL_TAG }}/${{ env.DL_IMAGE }}.hash")
+          echo "CACHE_HASH is $CACHE_HASH"
+          if [ -z "$CACHE_HASH" ] || [ "$DL_HASH" != "$CACHE_HASH" ]; then
             echo "REBUILD_DL=true" >> "$GITHUB_OUTPUT"
           fi
 
